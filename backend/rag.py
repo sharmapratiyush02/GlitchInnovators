@@ -1,74 +1,190 @@
-"""
-Sahara Phase 1 — Local RAG Pipeline (Minimal)
-Run: python rag.py ingest _chat.txt
-     python rag.py query "Missing Aai today"
-"""
-import re, sys, argparse
+import re
+import os
+from datetime import datetime
 from sentence_transformers import SentenceTransformer
 import chromadb
+from chromadb.config import Settings
+import numpy as np  # For potential cosine similarity if needed
 
-MODEL = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
-DB    = chromadb.PersistentClient("./sahara_db")
-COL   = DB.get_or_create_collection("memories", metadata={"hnsw:space": "cosine"})
+# Initialize the embedding model (use a lightweight model suitable for on-device)
+embedder = SentenceTransformer('all-MiniLM-L6-v2')  # Or a quantized version for mobile
 
-# ── 1. Parse WhatsApp export ──────────────────────────────────────────────────
-def parse(path):
-    pattern = re.compile(r"^(\d{1,2}/\d{1,2}/\d{2,4}),?\s+\d{1,2}:\d{2}.*?-\s+([^:]+):\s+(.+)$")
-    msgs = []
-    for line in open(path, encoding="utf-8", errors="replace"):
-        m = pattern.match(line.strip())
-        if m and "<" not in m.group(3):   # skip system messages
-            msgs.append({"date": m.group(1), "sender": m.group(2).strip(), "text": m.group(3).strip()})
-    return msgs
+# Function to parse WhatsApp chat export (_chat.txt)
+def parse_whatsapp_chat(file_path):
+    """
+    Parses a WhatsApp chat export file and normalizes the data into a list of dictionaries.
+    Each dict contains: 'date' (datetime), 'sender' (str), 'message' (str)
+    Supports common formats like [dd/mm/yyyy, h:mm:ss AM/PM] Sender: message
+    """
+    messages = []
+    # Updated pattern for [dd/mm/yyyy, h:mm:ss AM/PM] Sender: message (non-capturing for AM/PM)
+    date_pattern = r'\[(\d{1,2}/\d{1,2}/\d{4}), (\d{1,2}:\d{2}:\d{2} (?:AM|PM))\] (.*?): (.*)'
+    # Fallback for other formats: (mm/dd/yy, h:mm AM/PM) - Sender: message
+    fallback_pattern = r'(\d{1,2}/\d{1,2}/\d{2}), (\d{1,2}:\d{2}) (?:AM|PM) - (.*?): (.*)'
 
-# ── 2. Chunk + embed + store ──────────────────────────────────────────────────
-def ingest(path):
-    msgs   = parse(path)
-    chunks = [msgs[i:i+5] for i in range(0, len(msgs), 3)]   # size-5, stride-3
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
 
-    texts, ids, metas = [], [], []
-    for i, chunk in enumerate(chunks):
-        cid = f"c{i}"
-        if cid in (COL.get()["ids"] or []): continue
-        texts.append("\n".join(f"[{m['date']}] {m['sender']}: {m['text']}" for m in chunk))
-        ids.append(cid)
-        metas.append({"date": chunk[0]["date"], "senders": ", ".join({m["sender"] for m in chunk})})
+    with open(file_path, 'r', encoding='utf-8') as f:
+        current_message = None
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
 
-    if texts:
-        embs = MODEL.encode(texts, normalize_embeddings=True).tolist()
-        COL.add(ids=ids, embeddings=embs, documents=texts, metadatas=metas)
-    print(f"✅ Ingested {len(msgs)} messages → {len(texts)} new chunks (total: {COL.count()})")
+            # Try primary pattern
+            match = re.match(date_pattern, line)
+            if not match:
+                # Try fallback
+                match = re.match(fallback_pattern, line)
 
-# ── 3. Semantic retrieval ─────────────────────────────────────────────────────
-def query(q, k=5):
-    emb  = MODEL.encode([q], normalize_embeddings=True).tolist()
-    res  = COL.query(query_embeddings=emb, n_results=min(k, COL.count()),
-                     include=["documents", "metadatas", "distances"])
-    memories = []
-    for doc, meta, dist in zip(res["documents"][0], res["metadatas"][0], res["distances"][0]):
-        memories.append({"text": doc, "date": meta["date"],
-                         "senders": meta["senders"], "score": round(1 - dist, 3)})
-        print(f"\n🌿 [{meta['date']}] {meta['senders']}  (score: {round(1-dist,3)})")
-        print(doc[:300])
-    return memories
+            if match:
+                if current_message:
+                    # Append to previous if multi-line
+                    current_message['message'] += ' ' + line
+                else:
+                    # New message
+                    groups = match.groups()
+                    if len(groups) == 4:
+                        date_str, time_str, sender, message = groups
+                        full_date_str = f"{date_str} {time_str}"
+                        # Try parse with common formats
+                        date_formats = [
+                            '%d/%m/%Y %I:%M:%S %p',  # dd/mm/yyyy
+                            '%m/%d/%y %I:%M %p',     # mm/dd/yy
+                            '%d/%m/%y %H:%M'         # 24h fallback
+                        ]
+                        date_obj = None
+                        for fmt in date_formats:
+                            try:
+                                date_obj = datetime.strptime(full_date_str, fmt)
+                                break
+                            except ValueError:
+                                continue
+                        if date_obj:
+                            current_message = {
+                                'date': date_obj,
+                                'sender': sender.strip(),
+                                'message': message.strip()
+                            }
+                            messages.append(current_message)
+                    else:
+                        continue
+            elif current_message:
+                # Multi-line continuation
+                current_message['message'] += ' ' + line
 
+    print(f"Parsed {len(messages)} messages.")
+    return messages
+
+# Function to create vector store with embeddings
+def create_vector_store(messages, collection_name='sahara_memories'):
+    """
+    Generates embeddings for each message chunk and stores them in a local ChromaDB collection.
+    """
+    client = chromadb.PersistentClient(path="./chroma_db")  # Local persistent storage
+
+    # Check if collection exists, delete if it does (for fresh start in hackathon)
+    try:
+        existing = client.get_collection(collection_name)
+        client.delete_collection(collection_name)
+    except:
+        pass
+
+    collection = client.create_collection(
+        name=collection_name
+    )
+
+    # Prepare data
+    ids = []
+    documents = []
+    metadatas = []
+    for i, msg in enumerate(messages):
+        chunk = msg['message']
+        if chunk and len(chunk) > 10:  # Skip very short/empty
+            ids.append(str(i))
+            documents.append(chunk)
+            metadatas.append({
+                'date': msg['date'].isoformat(),
+                'sender': msg['sender']
+            })
+
+    if ids:
+        # Batch embed
+        embeddings = embedder.encode(documents).tolist()
+        collection.add(
+            ids=ids,
+            embeddings=embeddings,
+            metadatas=metadatas,
+            documents=documents
+        )
+        print(f"Added {len(ids)} embeddings to collection '{collection_name}'.")
+    else:
+        print("No messages to embed.")
+
+    return collection
+
+# Function for retrieval
+def retrieve_memories(query, collection_name='sahara_memories', top_k=5):
+    """
+    Embeds the query and performs cosine similarity search in ChromaDB to retrieve top_k relevant memories.
+    Returns list of dicts: {'document': str, 'metadata': dict, 'distance': float}
+    """
+    client = chromadb.PersistentClient(path="./chroma_db")
+    collection = client.get_collection(name=collection_name)
+
+    # Embed query
+    query_embedding = embedder.encode([query]).tolist()[0]
+
+    # Query
+    results = collection.query(
+        query_embeddings=[query_embedding],
+        n_results=top_k,
+        include=['documents', 'metadatas', 'distances']
+    )
+
+    retrieved = []
+    for i in range(len(results['ids'][0])):
+        retrieved.append({
+            'document': results['documents'][0][i],
+            'metadata': results['metadatas'][0][i],
+            'distance': results['distances'][0][i]
+        })
+
+    return retrieved
 def generate_response(user_message):
-    memories = query(user_message, k=3)
+    memories = retrieve_memories(user_message)
 
     if not memories:
         return "Main sun raha/rahi hoon... Thoda aur bataoge?"
 
-    context = "\n\n".join(m["text"] for m in memories)
+    formatted = []
+    for mem in memories:
+        formatted.append(
+            f"[{mem['metadata']['date'][:10]}] {mem['metadata']['sender']}: {mem['document']}"
+        )
+
+    context = "\n\n".join(formatted)
 
     return f"🌿 Mujhe yaad hai:\n\n{context}\n\nTum aur batana chahoge?"
 
-# ── CLI ───────────────────────────────────────────────────────────────────────
+# Example usage (for testing/demo)
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("cmd",  choices=["ingest", "query", "clear"])
-    ap.add_argument("arg",  nargs="?", help="chat file or query string")
-    args = ap.parse_args()
+    # Replace with your file path (from Flutter file picker)
+    file_path = "backend/sample_chat.txt"  # e.g., sample_chat.txt
 
-    if   args.cmd == "ingest": ingest(args.arg)
-    elif args.cmd == "query":  query(args.arg)
-    elif args.cmd == "clear":  DB.delete_collection("memories"); print("🗑️  Cleared")
+    # Step 1: Parse
+    messages = parse_whatsapp_chat(file_path)
+    print("\nSample Parsed Messages:")
+    for msg in messages[:2]:  # Show first 2
+        print(f"{msg['date']} - {msg['sender']}: {msg['message'][:50]}...")
+
+    # Step 2: Create vector store
+    collection = create_vector_store(messages)
+
+    # Step 3: Retrieve example (grief prompt)
+    query = "Missing Aai today"  # Example in Marathi/English mix if needed
+    memories = retrieve_memories(query)
+    print("\nRetrieved Memories (based on sample chat):")
+    for mem in memories:
+        print(f"Distance: {mem['distance']:.4f} | Sender: {mem['metadata']['sender']} | Date: {mem['metadata']['date'][:10]} | Message: {mem['document']}")
