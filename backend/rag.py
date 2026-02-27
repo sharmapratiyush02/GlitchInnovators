@@ -52,6 +52,16 @@ def query(q, k=5):
         print(doc[:300])
     return memories
 
+def generate_response(user_message):
+    memories = query(user_message, k=3)
+
+    if not memories:
+        return "Main sun raha/rahi hoon... Thoda aur bataoge?"
+
+    context = "\n\n".join(m["text"] for m in memories)
+
+    return f"🌿 Mujhe yaad hai:\n\n{context}\n\nTum aur batana chahoge?"
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

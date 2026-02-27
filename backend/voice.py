@@ -12,7 +12,7 @@ Download Vosk model (Hindi, works for Marathi too):
   wget https://alphacephei.com/vosk/models/vosk-model-small-hi-0.22.zip
   unzip vosk-model-small-hi-0.22.zip -d ./vosk_model
 """
-
+import requests
 import io, json, wave, numpy as np, librosa, sounddevice as sd
 from vosk import Model, KaldiRecognizer
 from flask import Flask, request, jsonify
@@ -145,12 +145,36 @@ def voice():
         })
 
     # Step 5 — Safe to forward transcript to Phase 2 LLM
-    return jsonify({
-        "transcript":     transcript,
-        "distress":       distress,
-        "crisis":         False,
-        "forward_to_llm": True,         # React Native calls /chat with this transcript
-    })
+    # Step 5 — Safe → Call Phase 2 LLM internally
+
+    try:
+        llm_response = requests.post(
+            "http://127.0.0.1:5006/chat",
+            json={"message": transcript},
+            timeout=10
+        )
+
+        if llm_response.status_code == 200:
+            chat_data = llm_response.json()
+            return jsonify({
+                "transcript": transcript,
+                "distress": distress,
+                "crisis": False,
+                "response": chat_data.get("response", ""),
+                "forward_to_llm": False
+            })
+
+        else:
+            return jsonify({
+                "error": "LLM service unavailable",
+                "transcript": transcript
+            }), 500
+
+    except Exception as e:
+        return jsonify({
+            "error": "Could not connect to LLM service",
+            "details": str(e)
+        }), 500
 
 
 if __name__ == "__main__":
