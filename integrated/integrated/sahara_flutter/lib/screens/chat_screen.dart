@@ -1,239 +1,246 @@
-import 'dart:async';
+// lib/screens/chat_screen.dart
+// ─────────────────────────────────────────────────────────────
+// Sahara — Chat Screen
+// RAG-powered memory chat with voice input support
+// Matches existing UI: warm sand background, ember accents
+// ─────────────────────────────────────────────────────────────
+
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
-import '../models/models.dart';
-import '../services/app_state.dart';
-import '../services/api_service.dart';
-import '../theme/sahara_theme.dart';
-import '../widgets/widgets.dart';
+
+// ─── Data model ───────────────────────────────────────────────
+
+enum MessageSender { user, sahara }
+
+class ChatMessage {
+  final String text;
+  final MessageSender sender;
+  final DateTime time;
+  final bool isWelcome;
+
+  ChatMessage({
+    required this.text,
+    required this.sender,
+    DateTime? time,
+    this.isWelcome = false,
+  }) : time = time ?? DateTime.now();
+}
+
+// ─── Screen ───────────────────────────────────────────────────
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final String lovedOneName;
+
+  const ChatScreen({
+    super.key,
+    this.lovedOneName = 'Mumma',
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
-  final _inputCtrl  = TextEditingController();
-  final _scrollCtrl = ScrollController();
-  final _recorder   = AudioRecorder();
+class _ChatScreenState extends State<ChatScreen>
+    with SingleTickerProviderStateMixin {
+  static const _baseUrl = 'http://localhost:5000';
 
-  bool _recording        = false;
-  bool _backendAvailable = false;
-  HealthStatus? _health;
+  final _textController = TextEditingController();
+  final _scrollController = ScrollController();
+  final _audioRecorder = AudioRecorder();
+
+  final List<ChatMessage> _messages = [];
+
+  bool _isLoading = false;
+  bool _isConnected = false;
+  bool _isRecording = false;
   String? _recordingPath;
+
+  // Typing indicator animation
+  late AnimationController _typingController;
+  late Animation<double> _typingAnimation;
 
   @override
   void initState() {
     super.initState();
-    _checkBackend();
-    _addWelcome();
+    _typingController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    )..repeat(reverse: true);
+    _typingAnimation = Tween(begin: 0.3, end: 1.0).animate(_typingController);
+
+    _addWelcomeMessage();
+    _checkConnection();
   }
 
-  @override
-  void dispose() {
-    _inputCtrl.dispose();
-    _scrollCtrl.dispose();
-    _recorder.dispose();
-    super.dispose();
-  }
-
-  Future<void> _checkBackend() async {
-    final h = await ApiService.checkHealth();
-    if (mounted) {
-      setState(() {
-        _health           = h;
-        _backendAvailable = h.isReady;
-      });
-    }
-    // Retry every 15 s if not yet ready
-    if (!h.isReady) {
-      Future.delayed(const Duration(seconds: 15), _checkBackend);
-    }
-  }
-
-  void _addWelcome() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final state = context.read<AppState>();
-      final name = state.profile?.lovedOneName ?? 'your loved one';
-      if (state.messages.isEmpty) {
-        state.addMessage(ChatMessage(
-          id: 'welcome',
-          text:
-              "Namaste 🙏 I'm Sahara. I'm here to help you revisit warm memories of $name.\n\n"
-              "You can ask me anything — a favourite moment, a shared joke, something they always said. "
-              "I'll gently surface what I find from your conversations.",
-          sender: MessageSender.ai,
-          timestamp: DateTime.now(),
-        ));
-      }
-    });
-  }
-
-  // ── Send text message ──────────────────────────────────────────────
-  Future<void> _send(String text) async {
-    if (text.trim().isEmpty) return;
-    _inputCtrl.clear();
-
-    final state     = context.read<AppState>();
-    final userMsg   = ChatMessage(
-      id: 'u_${DateTime.now().millisecondsSinceEpoch}',
-      text: text,
-      sender: MessageSender.user,
-      timestamp: DateTime.now(),
-    );
-    state.addMessage(userMsg);
-
-    final loadingId = 'ai_${DateTime.now().millisecondsSinceEpoch}';
-    state.addMessage(ChatMessage(
-      id: loadingId,
-      text: '',
-      sender: MessageSender.ai,
-      timestamp: DateTime.now(),
-      isLoading: true,
+  void _addWelcomeMessage() {
+    _messages.add(ChatMessage(
+      text:
+          'Namaste 🎙 I\'m Sahara. I\'m here to help you revisit warm memories of ${widget.lovedOneName}.\n\n'
+          'You can ask me anything — a favourite moment, a shared joke, something they always said. '
+          'I\'ll gently surface what I find from your conversations.',
+      sender: MessageSender.sahara,
+      isWelcome: true,
     ));
-    state.setTyping(true);
+  }
+
+  Future<void> _checkConnection() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$_baseUrl/health'))
+          .timeout(const Duration(seconds: 5));
+      if (mounted) {
+        setState(() => _isConnected = res.statusCode == 200);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isConnected = false);
+    }
+  }
+
+  // ── Send text query ────────────────────────────────────────
+
+  Future<void> _sendMessage() async {
+    final text = _textController.text.trim();
+    if (text.isEmpty || _isLoading) return;
+
+    _textController.clear();
+    setState(() {
+      _messages.add(ChatMessage(text: text, sender: MessageSender.user));
+      _isLoading = true;
+    });
     _scrollToBottom();
 
     try {
-      if (_backendAvailable) {
-        final resp = await ApiService.generate(text);
-        state.updateMessage(
-          loadingId,
-          text: resp.response,
-          isLoading: false,
-          memories: resp.memoriesSample,
-          isCrisis: resp.isCrisis,
-        );
-        if (resp.isCrisis) _showCrisisSheet(context);
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/generate'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'query': text}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final reply = data['response'] ??
+            data['answer'] ??
+            data['result'] ??
+            data['message'] ??
+            'I couldn\'t find anything about that in your memories.';
+        _addSaharaMessage(reply);
       } else {
-        await Future.delayed(const Duration(seconds: 2));
-        state.updateMessage(
-          loadingId,
-          text: _demoResponse(text, state.profile?.lovedOneName ?? 'them'),
-          isLoading: false,
-          memories: _demoMemories,
-        );
+        _addSaharaMessage(
+            'Something went gently wrong. Please try again in a moment.');
       }
     } catch (e) {
-      state.updateMessage(
-        loadingId,
-        text: "I had trouble connecting. Please make sure Sahara's backend is running.",
-        isLoading: false,
-      );
+      _addSaharaMessage(
+          'I\'m having trouble connecting. Please check that the backend is running.');
     } finally {
-      state.setTyping(false);
-      _scrollToBottom(delay: 100);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // ── Voice recording ────────────────────────────────────────────────
-  Future<void> _startRecording() async {
-    final micStatus = await Permission.microphone.request();
-    if (!micStatus.isGranted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Microphone permission is required.')),
-      );
-      return;
+  void _addSaharaMessage(String text) {
+    if (!mounted) return;
+    setState(() {
+      _messages.add(ChatMessage(text: text, sender: MessageSender.sahara));
+    });
+    _scrollToBottom();
+  }
+
+  // ── Voice recording ────────────────────────────────────────
+
+  Future<void> _toggleRecording() async {
+    if (_isRecording) {
+      await _stopRecording();
+    } else {
+      await _startRecording();
     }
+  }
 
-    final dir  = await getTemporaryDirectory();
-    _recordingPath = '${dir.path}/sahara_voice_${DateTime.now().millisecondsSinceEpoch}.wav';
+  Future<void> _startRecording() async {
+    try {
+      final hasPermission = await _audioRecorder.hasPermission();
+      if (!hasPermission) return;
 
-    await _recorder.start(
-      RecordConfig(
-        encoder: AudioEncoder.wav,
-        sampleRate: 16000,
-        numChannels: 1,
-      ),
-      path: _recordingPath!,
-    );
-    if (mounted) setState(() => _recording = true);
+      final dir = await getTemporaryDirectory();
+      _recordingPath =
+          '${dir.path}/sahara_voice_${DateTime.now().millisecondsSinceEpoch}.wav';
+
+      await _audioRecorder.start(
+        const RecordConfig(encoder: AudioEncoder.wav),
+        path: _recordingPath!,
+      );
+      if (mounted) setState(() => _isRecording = true);
+    } catch (e) {
+      debugPrint('Recording error: $e');
+    }
   }
 
   Future<void> _stopRecording() async {
-    if (!_recording) return;
-    await _recorder.stop();
-    if (mounted) setState(() => _recording = false);
+    try {
+      await _audioRecorder.stop();
+      if (mounted) setState(() => _isRecording = false);
 
-    if (_recordingPath == null) return;
-    final audioFile = File(_recordingPath!);
-    if (!audioFile.existsSync()) return;
-
-    await _sendVoice(audioFile);
+      if (_recordingPath != null) {
+        await _sendVoiceQuery(_recordingPath!);
+      }
+    } catch (e) {
+      debugPrint('Stop recording error: $e');
+      if (mounted) setState(() => _isRecording = false);
+    }
   }
 
-  Future<void> _sendVoice(File audioFile) async {
-    final state     = context.read<AppState>();
-    final loadingId = 'ai_${DateTime.now().millisecondsSinceEpoch}';
-
-    state.addMessage(ChatMessage(
-      id: loadingId,
-      text: '',
-      sender: MessageSender.ai,
-      timestamp: DateTime.now(),
-      isLoading: true,
-    ));
-    state.setTyping(true);
-    _scrollToBottom();
+  Future<void> _sendVoiceQuery(String filePath) async {
+    setState(() => _isLoading = true);
 
     try {
-      final lang = _langCodeForVosk(state.language);
-      final resp = await ApiService.voiceQuery(audioFile, lang: lang);
+      final file = File(filePath);
+      if (!await file.exists()) return;
 
-      // Show what was transcribed as a user bubble first
-      if (resp.transcription.isNotEmpty) {
-        state.addMessage(ChatMessage(
-          id: 'u_v_${DateTime.now().millisecondsSinceEpoch}',
-          text: '🎙️ "${resp.transcription}"',
-          sender: MessageSender.user,
-          timestamp: DateTime.now(),
-        ));
+      final request =
+          http.MultipartRequest('POST', Uri.parse('$_baseUrl/voice_query'));
+      request.files
+          .add(await http.MultipartFile.fromPath('audio', filePath));
+
+      final streamed = await request.send()
+          .timeout(const Duration(seconds: 30));
+      final res = await http.Response.fromStream(streamed);
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final transcript = data['transcript'] ?? '';
+        final reply     = data['response']   ?? data['answer'] ?? '';
+
+        if (transcript.isNotEmpty) {
+          setState(() {
+            _messages.add(
+                ChatMessage(text: transcript, sender: MessageSender.user));
+          });
+        }
+        if (reply.isNotEmpty) {
+          _addSaharaMessage(reply);
+        }
+      } else {
+        _addSaharaMessage(
+            'I couldn\'t catch that. Could you try speaking again?');
       }
-
-      state.updateMessage(
-        loadingId,
-        text: resp.response,
-        isLoading: false,
-        memories: resp.memoriesSample,
-        isCrisis: resp.isCrisis,
-      );
-      if (resp.isCrisis) _showCrisisSheet(context);
     } catch (e) {
-      state.updateMessage(
-        loadingId,
-        text: "Voice processing failed. You can type your message instead.",
-        isLoading: false,
-      );
+      _addSaharaMessage('Voice query failed. Please try typing instead.');
     } finally {
-      state.setTyping(false);
-      _scrollToBottom(delay: 100);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  String _langCodeForVosk(AppLanguage lang) {
-    switch (lang) {
-      case AppLanguage.hindi:
-      case AppLanguage.hinglish:
-      case AppLanguage.marathi:
-        return 'hi';
-      default:
-        return 'en-in';
-    }
-  }
+  // ── Helpers ────────────────────────────────────────────────
 
-  void _scrollToBottom({int delay = 0}) {
-    Future.delayed(Duration(milliseconds: delay), () {
-      if (_scrollCtrl.hasClients) {
-        _scrollCtrl.animateTo(
-          _scrollCtrl.position.maxScrollExtent,
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -241,426 +248,481 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final state    = context.watch<AppState>();
-    final messages = state.messages;
-
-    String statusLabel;
-    Color  statusColor;
-    if (_health == null) {
-      statusLabel = 'Connecting...';
-      statusColor = Colors.orange;
-    } else if (!_health!.isOnline) {
-      statusLabel = 'Offline – demo mode';
-      statusColor = Colors.orange;
-    } else if (!_health!.llmLoaded) {
-      statusLabel = 'Loading AI...';
-      statusColor = Colors.orange;
-    } else if (!_health!.memoriesIndexed) {
-      statusLabel = 'No memories yet';
-      statusColor = Colors.orange;
-    } else {
-      statusLabel = 'AI active';
-      statusColor = SaharaTheme.sage;
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Sahara', style: Theme.of(context).textTheme.headlineMedium),
-            Row(
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: statusColor),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  statusLabel,
-                  style: GoogleFonts.nunito(
-                      fontSize: 12, color: statusColor, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            child: TextButton(
-              onPressed: () => _showCrisisSheet(context),
-              style: TextButton.styleFrom(
-                backgroundColor: SaharaTheme.crisisRed.withOpacity(0.1),
-                foregroundColor: SaharaTheme.crisisRed,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.favorite, size: 14),
-                  const SizedBox(width: 4),
-                  Text('Help',
-                      style: GoogleFonts.nunito(fontSize: 13, fontWeight: FontWeight.w700)),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollCtrl,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: messages.length,
-              itemBuilder: (ctx, i) => _MessageBubble(message: messages[i]),
-            ),
-          ),
-          _InputBar(
-            controller: _inputCtrl,
-            recording: _recording,
-            onSend: _send,
-            onVoiceStart: _startRecording,
-            onVoiceStop: _stopRecording,
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showCrisisSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.favorite, color: SaharaTheme.crisisRed, size: 40),
-            const SizedBox(height: 16),
-            Text('You are not alone.',
-                style: Theme.of(context).textTheme.headlineMedium,
-                textAlign: TextAlign.center),
-            const SizedBox(height: 8),
-            Text(
-              'Trained counsellors are available 24/7.',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: SaharaTheme.mutedBrown),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            _CrisisButton(name: 'iCall', number: '9152987821'),
-            const SizedBox(height: 12),
-            _CrisisButton(name: 'Vandrevala Foundation', number: '1860-2662-345'),
-            const SizedBox(height: 28),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── Demo fallback ──────────────────────────────────────────────────
-  String _demoResponse(String query, String name) {
-    final q = query.toLowerCase();
-    if (q.contains('chai') || q.contains('tea')) {
-      return "I found a beautiful memory 🍵 — there was a rainy afternoon when $name made chai and you both sat by the window watching the rain.\n\n"
-          "It sounds like those quiet moments together were really special.\n\n"
-          "💛 Sahara uses only your saved memories. iCall: 9152987821";
-    } else if (q.contains('laugh') || q.contains('funny')) {
-      return "Oh, $name had such a warm laugh! There was a memory where they were teasing you about something silly and couldn't stop laughing. 💛\n\n"
-          "iCall: 9152987821";
-    } else {
-      return "I searched through your memories with $name... There's so much warmth there. Would you like to tell me more about what you're thinking of? 🌿\n\n"
-          "iCall: 9152987821";
-    }
-  }
-
-  final List<Memory> _demoMemories = const [
-    Memory(
-      text: 'Made chai together, talked for hours. Best evening.',
-      date: '14 Mar 2022',
-      sender: 'Aai',
-      relevanceScore: 0.92,
-    ),
-  ];
-}
-
-// ── Message Bubble ─────────────────────────────────────────────────────
-class _MessageBubble extends StatelessWidget {
-  final ChatMessage message;
-  const _MessageBubble({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    final isUser = message.sender == MessageSender.user;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final time   = DateFormat('h:mm a').format(message.timestamp);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment:
-            isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment:
-                isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (!isUser)
-                Container(
-                  width: 32,
-                  height: 32,
-                  margin: const EdgeInsets.only(right: 8),
-                  decoration: const BoxDecoration(
-                      shape: BoxShape.circle, color: SaharaTheme.ember),
-                  child:
-                      const Center(child: Text('🌿', style: TextStyle(fontSize: 16))),
-                ),
-              Flexible(
-                child: Container(
-                  constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.75),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: isUser
-                        ? SaharaTheme.ember
-                        : isDark
-                            ? SaharaTheme.darkCard
-                            : SaharaTheme.sandDeep,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(18),
-                      topRight: const Radius.circular(18),
-                      bottomLeft: Radius.circular(isUser ? 18 : 4),
-                      bottomRight: Radius.circular(isUser ? 4 : 18),
-                    ),
-                  ),
-                  child: message.isLoading
-                      ? const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                          child: LoadingDots(),
-                        )
-                      : Text(
-                          message.text,
-                          style: GoogleFonts.nunito(
-                            fontSize: 15,
-                            height: 1.55,
-                            color: isUser
-                                ? SaharaTheme.warmWhite
-                                : isDark
-                                    ? SaharaTheme.warmWhite
-                                    : SaharaTheme.inkBrown,
-                          ),
-                        ),
-                ),
-              ),
-            ],
-          ),
-
-          // Memory cards (AI only)
-          if (!isUser && message.memories.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(left: 40),
-              child: Column(
-                  children: message.memories.map((m) => MemoryCard(memory: m)).toList()),
-            ),
-
-          // Disclaimer (AI only)
-          if (!isUser && !message.isLoading && message.text.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(left: 40, top: 4),
-              child: const SafetyDisclaimer(),
-            ),
-
-          // Timestamp
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(time,
-                style: GoogleFonts.nunito(fontSize: 11, color: SaharaTheme.mutedBrown)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Input Bar ──────────────────────────────────────────────────────────
-class _InputBar extends StatefulWidget {
-  final TextEditingController controller;
-  final bool recording;
-  final void Function(String) onSend;
-  final VoidCallback onVoiceStart;
-  final VoidCallback onVoiceStop;
-
-  const _InputBar({
-    required this.controller,
-    required this.recording,
-    required this.onSend,
-    required this.onVoiceStart,
-    required this.onVoiceStop,
-  });
-
-  @override
-  State<_InputBar> createState() => _InputBarState();
-}
-
-class _InputBarState extends State<_InputBar> with SingleTickerProviderStateMixin {
-  late AnimationController _pulseCtrl;
-  late Animation<double>   _pulse;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 700));
-    _pulse = Tween(begin: 1.0, end: 1.2)
-        .animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
+  String _formatTime(DateTime t) {
+    final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
+    final m = t.minute.toString().padLeft(2, '0');
+    final period = t.hour >= 12 ? 'PM' : 'AM';
+    return '$h:$m $period';
   }
 
   @override
   void dispose() {
-    _pulseCtrl.dispose();
+    _textController.dispose();
+    _scrollController.dispose();
+    _audioRecorder.dispose();
+    _typingController.dispose();
     super.dispose();
   }
 
-  @override
-  void didUpdateWidget(_InputBar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.recording && !oldWidget.recording) {
-      _pulseCtrl.repeat(reverse: true);
-    } else if (!widget.recording) {
-      _pulseCtrl.stop();
-      _pulseCtrl.reset();
-    }
-  }
+  // ─── Build ─────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5E6CC),
+      appBar: _buildAppBar(),
+      body: Column(
+        children: [
+          Expanded(child: _buildMessageList()),
+          if (_isLoading) _buildTypingIndicator(),
+          _buildInputBar(),
+        ],
+      ),
+    );
+  }
 
+  AppBar _buildAppBar() {
+    return AppBar(
+      backgroundColor: const Color(0xFFF5E6CC),
+      elevation: 0,
+      automaticallyImplyLeading: false,
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Sahara',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF3D1F0A),
+              letterSpacing: -0.3,
+            ),
+          ),
+          Row(
+            children: [
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: _isConnected
+                      ? const Color(0xFFB5652A)
+                      : const Color(0xFFB5652A),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                _isConnected ? 'Connected' : 'Connecting...',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _isConnected
+                      ? const Color(0xFFB5652A)
+                      : const Color(0xFFB5652A),
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: TextButton.icon(
+            onPressed: _showHelpDialog,
+            icon: const Icon(Icons.favorite,
+                size: 14, color: Color(0xFFB5652A)),
+            label: const Text(
+              'Help',
+              style: TextStyle(
+                color: Color(0xFFB5652A),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.white.withOpacity(0.6),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMessageList() {
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: _messages.length,
+      itemBuilder: (ctx, i) {
+        final msg = _messages[i];
+        // Show timestamp only on last message
+        final showTime = i == _messages.length - 1;
+        return _buildMessageItem(msg, showTime);
+      },
+    );
+  }
+
+  Widget _buildMessageItem(ChatMessage msg, bool showTime) {
+    final isSahara = msg.sender == MessageSender.sahara;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Sahara avatar
+              if (isSahara) ...[
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFB5652A),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.mic,
+                      size: 18, color: Colors.white),
+                ),
+                const SizedBox(width: 10),
+              ],
+
+              // Bubble
+              Flexible(
+                child: isSahara
+                    ? _buildSaharaBubble(msg)
+                    : Align(
+                        alignment: Alignment.centerRight,
+                        child: _buildUserBubble(msg),
+                      ),
+              ),
+
+              // User spacer
+              if (!isSahara) ...[
+                const SizedBox(width: 10),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFB5652A).withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.person,
+                      size: 18, color: Color(0xFFB5652A)),
+                ),
+              ],
+            ],
+          ),
+
+          // Disclaimer under welcome message
+          if (msg.isWelcome) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 46),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.favorite_border,
+                          size: 12,
+                          color: const Color(0xFF8B6E4E).withOpacity(0.7)),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          'Sahara uses only your saved memories. It is not a substitute for professional grief support.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color:
+                                const Color(0xFF8B6E4E).withOpacity(0.8),
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'iCall: 9152987821 | Vandrevala: 1860-2662-345',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: const Color(0xFF8B6E4E).withOpacity(0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Timestamp
+          if (showTime)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 46),
+              child: Text(
+                _formatTime(msg.time),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: const Color(0xFF8B6E4E).withOpacity(0.6),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSaharaBubble(ChatMessage msg) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
-        color: isDark ? SaharaTheme.darkSurface : SaharaTheme.sand,
-        border: Border(
-            top: BorderSide(color: SaharaTheme.mutedBrown.withOpacity(0.2))),
+        color: const Color(0xFFE8D5A8),
+        borderRadius: const BorderRadius.only(
+          topLeft:     Radius.circular(4),
+          topRight:    Radius.circular(20),
+          bottomLeft:  Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
+      ),
+      child: Text(
+        msg.text,
+        style: const TextStyle(
+          fontSize: 15,
+          color: Color(0xFF3D1F0A),
+          height: 1.6,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserBubble(ChatMessage msg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: const BoxDecoration(
+        color: Color(0xFFB5652A),
+        borderRadius: BorderRadius.only(
+          topLeft:     Radius.circular(20),
+          topRight:    Radius.circular(4),
+          bottomLeft:  Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
+      ),
+      child: Text(
+        msg.text,
+        style: const TextStyle(
+          fontSize: 15,
+          color: Colors.white,
+          height: 1.6,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypingIndicator() {
+    return Padding(
+      padding: const EdgeInsets.only(left: 62, bottom: 8),
+      child: Row(
+        children: List.generate(3, (i) {
+          return AnimatedBuilder(
+            animation: _typingAnimation,
+            builder: (_, __) => Container(
+              margin: const EdgeInsets.only(right: 4),
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: const Color(0xFFB5652A).withOpacity(
+                  (i == 0)
+                      ? _typingAnimation.value
+                      : (i == 1)
+                          ? (_typingAnimation.value * 0.7)
+                          : (_typingAnimation.value * 0.4),
+                ),
+                shape: BoxShape.circle,
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildInputBar() {
+    return Container(
+      padding: EdgeInsets.only(
+        left: 12,
+        right: 12,
+        top: 12,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 12,
+      ),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF5E6CC),
       ),
       child: Row(
         children: [
-          // Voice button – hold to record, release to send
+          // Voice button
           GestureDetector(
-            onTapDown:  (_) => widget.onVoiceStart(),
-            onTapUp:    (_) => widget.onVoiceStop(),
-            onTapCancel:   widget.onVoiceStop,
-            child: AnimatedBuilder(
-              animation: _pulse,
-              builder: (ctx, child) => Transform.scale(
-                scale: widget.recording ? _pulse.value : 1.0,
-                child: child,
+            onTap: _toggleRecording,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: _isRecording
+                    ? const Color(0xFFB5652A)
+                    : const Color(0xFFD4956A),
+                shape: BoxShape.circle,
+                boxShadow: _isRecording
+                    ? [
+                        BoxShadow(
+                          color:
+                              const Color(0xFFB5652A).withOpacity(0.4),
+                          blurRadius: 12,
+                          spreadRadius: 2,
+                        )
+                      ]
+                    : [],
               ),
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: widget.recording
-                      ? SaharaTheme.crisisRed
-                      : SaharaTheme.ember.withOpacity(0.15),
-                ),
-                child: Icon(
-                  widget.recording ? Icons.stop : Icons.mic,
-                  color: widget.recording ? Colors.white : SaharaTheme.ember,
-                  size: 20,
-                ),
+              child: Icon(
+                _isRecording ? Icons.stop : Icons.mic,
+                color: Colors.white,
+                size: 22,
               ),
             ),
           ),
+
           const SizedBox(width: 10),
 
+          // Text input
           Expanded(
-            child: TextField(
-              controller: widget.controller,
-              maxLines: 3,
-              minLines: 1,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: InputDecoration(
-                hintText: widget.recording
-                    ? 'Listening... release to send'
-                    : 'Share a memory or ask something...',
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              onSubmitted: widget.onSend,
+              child: TextField(
+                controller: _textController,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: Color(0xFF3D1F0A),
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Share a memory or ask something...',
+                  hintStyle: TextStyle(
+                    color: const Color(0xFF8B6E4E).withOpacity(0.5),
+                    fontSize: 14,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 14),
+                ),
+                onSubmitted: (_) => _sendMessage(),
+                textInputAction: TextInputAction.send,
+                maxLines: 4,
+                minLines: 1,
+              ),
             ),
           ),
+
           const SizedBox(width: 10),
 
+          // Send button
           GestureDetector(
-            onTap: () => widget.onSend(widget.controller.text),
+            onTap: _sendMessage,
             child: Container(
-              width: 44,
-              height: 44,
+              width: 48,
+              height: 48,
               decoration: const BoxDecoration(
-                  shape: BoxShape.circle, color: SaharaTheme.ember),
-              child: const Icon(Icons.send, color: Colors.white, size: 20),
+                color: Color(0xFFB5652A),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.send_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
           ),
         ],
       ),
     );
   }
-}
 
-// ── Crisis Button ──────────────────────────────────────────────────────
-class _CrisisButton extends StatelessWidget {
-  final String name;
-  final String number;
-  const _CrisisButton({required this.name, required this.number});
+  // ── Help dialog ────────────────────────────────────────────
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: SaharaTheme.crisisRed.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SaharaTheme.crisisRed.withOpacity(0.4)),
+  void _showHelpDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFFFDFAF5),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'If you need support',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF3D1F0A),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Sahara is a memory companion, not a crisis service. If you\'re struggling, please reach out:',
+              style: TextStyle(
+                fontSize: 13,
+                color: const Color(0xFF8B6E4E),
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 20),
+            _helpLine('iCall', '9152987821'),
+            _helpLine('Vandrevala Foundation', '9999666555'),
+            _helpLine('AASRA', '9820466627'),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _helpLine(String name, String number) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          const Icon(Icons.phone, color: SaharaTheme.crisisRed, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name,
-                    style: GoogleFonts.nunito(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        color: SaharaTheme.crisisRed)),
-                Text(number,
-                    style: GoogleFonts.nunito(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: SaharaTheme.crisisRed)),
-              ],
+          Text(
+            name,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF3D1F0A),
+            ),
+          ),
+          const Spacer(),
+          Text(
+            number,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFFB5652A),
+              letterSpacing: 0.5,
             ),
           ),
         ],
