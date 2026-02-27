@@ -21,90 +21,81 @@ This project aims to design an innovative, scalable, and accessible digital supp
 
 ---
 
-## 🌿 Our Solution – Sahara
+# 🌿 Our Solution – Sahara
 
 Sahara is a privacy-first AI emotional support companion designed to:
 
 - Provide empathetic first-level support
-- Recall positive personal memories (local RAG system)
+- Recall positive personal memories using a Local RAG system
 - Work fully offline (no cloud upload of private chats)
-- Support multilingual interaction
+- Support multilingual interaction (Hindi / Marathi / English)
 - Detect distress signals and suggest safe escalation
 
 Unlike traditional therapy apps, Sahara focuses on:
-- On-device AI
-- Cultural context sensitivity
-- Memory-aware emotional support
-- Ethical safeguards
+
+- 🧠 On-device AI processing  
+- 🏠 Local memory storage  
+- 🌏 Cultural context sensitivity  
+- 🔐 Ethical safeguards  
+- 🚨 Crisis keyword detection  
 
 ---
 
-## 🧠 Phase 1 – Local RAG Backend (Current Build)
+# 🧠 Phase 1 – Local RAG Backend (Current Build)
 
-Implemented:
+### Implemented:
 
-- WhatsApp chat export parsing
-- Semantic chunking (size=5, stride=3)
-- Embedding via Sentence Transformers
-- Local vector storage using ChromaDB
-- Semantic retrieval of relevant memory snippets
+- WhatsApp chat export parsing  
+- Semantic chunking (size=5, stride=3)  
+- Embedding via Sentence Transformers  
+- Local vector storage using ChromaDB  
+- Semantic retrieval of relevant memory snippets  
+
+This enables Sahara to recall emotionally relevant personal memories and ground responses in user context.
 
 ---
 
-## 🛠 Tech Stack
+# 💬 Phase 2 – Memory-Aware Emotional Chat (UI Built)
 
+Frontend interface includes:
+
+- RAG memory search panel
+- LLM-style emotional chat simulation
+- Crisis keyword detection logic
+- Session timer (20-minute ethical cap)
+- Memory score visibility
+- Suggested emotional prompts
+
+---
+
+# 🎙 Phase 3 – Voice Distress Analysis (Planned)
+
+- Offline Speech-to-Text (VOSK)
+- Prosodic feature analysis (pitch, energy, speech rate)
+- Distress scoring
+- Escalation logic with Indian helplines
+
+---
+
+# 🛠 Tech Stack
+
+Backend:
 - Python 3.11
 - Sentence-Transformers
 - ChromaDB
 - PyTorch
 - Local Persistent Vector Database
-- Modular CLI-based RAG Engine
+
+Frontend:
+- HTML / CSS / JavaScript
+- Fully client-side UI
+- Privacy-first architecture
 
 ---
 
-## ⚙ Setup
+# ⚙ Setup
 
 ```bash
 py -3.11 -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
-```
-
----
-
-## ▶ Usage
-
-### Ingest Chat File
-```bash
-python rag.py ingest your_chat.txt
-```
-
-### Query Memory
-```bash
-python rag.py query "Missing Aai today"
-```
-
----
-
-## 🔐 Privacy & Ethics
-
-- Fully local vector database
-- No personal data sent to external APIs
-- Clear disclaimers
-- Designed as support tool only
-- No medical claims
-
----
-
-## ⏳ Hackathon Progress Log
-
-- [x] Hour 1 – Environment setup & backend dependencies
-- [ ] Hour 2 – Test ingestion pipeline
-- [ ] Hour 3 – Improve retrieval scoring
-- [ ] Hour 4 – Add response generation layer
-- [ ] Hour 5+ – UI & Voice Integration
-- [ ] Final – Demo + PPT + Deployment
-
----
-
-Built with responsibility, empathy, and privacy-first design.

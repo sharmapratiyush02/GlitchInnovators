@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sahara — Your Private Memory Oasis</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #0d1117;
+  --bg2:       #161b22;
+  --bg3:       #21262d;
+  --border:    #30363d;
+  --sage:      #3fb950;
+  --sage-dim:  #238636;
+  --sage-glow: rgba(63,185,80,0.15);
+  --amber:     #d29922;
+  --red:       #f85149;
+  --blue:      #58a6ff;
+  --text:      #e6edf3;
+  --muted:     #8b949e;
+  --cream:     #f0e6d3;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IBM Plex Sans', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* animated background particles */
+.bg-canvas { position:fixed; inset:0; pointer-events:none; z-index:0; opacity:.4; }
+
+/* ── App shell ── */
+.shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+  position: relative; z-index:1;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  position: sticky; top:0; height:100vh;
+}
+
+.logo-area {
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  color: var(--sage);
+  letter-spacing: .5px;
+  display: flex; align-items: center; gap: 10px;
+}
+.logo-leaf {
+  width: 32px; height: 32px;
+  background: var(--sage-glow);
+  border: 1px solid var(--sage-dim);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.logo-leaf span { transform: rotate(45deg); display:block; }
+.tagline {
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-top: 4px;
+  padding-left: 42px;
+}
+
+.nav { padding: 16px 12px; flex:1; }
+.nav-section { font-size: 9px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; padding: 8px 8px 4px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; color: var(--muted);
+  transition: all .15s;
+  margin-bottom: 2px;
+  border: 1px solid transparent;
+}
+.nav-item:hover { background: var(--bg3); color: var(--text); }
+.nav-item.active {
+  background: var(--sage-glow);
+  border-color: var(--sage-dim);
+  color: var(--sage);
+}
+.nav-item .icon { font-size: 15px; width: 20px; text-align:center; }
+.nav-badge {
+  margin-left: auto; font-size: 9px; font-family: 'IBM Plex Mono', monospace;
+  background: var(--bg3); border: 1px solid var(--border);
+  padding: 1px 6px; border-radius: 10px; color: var(--muted);
+}
+.nav-item.active .nav-badge { background: var(--sage-dim); color: #fff; border-color: transparent; }
+
+.sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+.privacy-pill {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 20px; padding: 8px 12px; font-size: 11px; color: var(--muted);
+}
+.privacy-dot { width:6px; height:6px; border-radius:50%; background:var(--sage); box-shadow:0 0 6px var(--sage); }
+
+/* ── Main content ── */
+.main { display:flex; flex-direction:column; overflow:hidden; }
+
+/* ── Topbar ── */
+.topbar {
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg);
+}
+.page-title { font-family:'Playfair Display',serif; font-size:18px; }
+.page-title span { color: var(--sage); }
+.topbar-right { display:flex; align-items:center; gap:12px; }
+.status-chip {
+  display: flex; align-items:center; gap:6px;
+  font-size: 11px; font-family:'IBM Plex Mono',monospace;
+  color: var(--sage); background: var(--sage-glow);
+  border: 1px solid var(--sage-dim);
+  padding: 5px 12px; border-radius: 20px;
+}
+.pulse { width:6px;height:6px;border-radius:50%;background:var(--sage);
+  animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.4)} }
+
+/* ── Panels ── */
+.panel { display:none; flex:1; overflow-y:auto; padding:24px 28px; }
+.panel.active { display:block; animation: fadeUp .3s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── Cards ── */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.card-head {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title {
+  font-size: 11px; font-family:'IBM Plex Mono',monospace;
+  color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase;
+  display: flex; align-items: center; gap: 8px;
+}
+.card-body { padding: 16px; }
+
+/* ── Stats grid ── */
+.stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+.stat-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px;
+  transition: border-color .2s;
+}
+.stat-card:hover { border-color: var(--sage-dim); }
+.stat-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px; color: var(--sage); line-height: 1;
+}
+.stat-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform:uppercase; margin-top:4px; }
+
+/* ── Chat file viewer ── */
+.chat-viewer {
+  background: var(--bg); border-radius: 8px;
+  padding: 12px; max-height: 160px; overflow-y: auto;
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 1.8;
+}
+.cl { display:flex; gap:8px; }
+.cl-date { color:#444c56; flex-shrink:0; }
+.cl-name { flex-shrink:0; }
+.cl-name.aai  { color:#79c0ff; }
+.cl-name.arya { color:#56d364; }
+.cl-name.baba { color:#d2a679; }
+.cl-msg { color: #c9d1d9; }
+
+/* ── Query section ── */
+.query-bar {
+  display:flex; gap:10px; margin:14px 0;
+}
+.query-input {
+  flex:1; background:var(--bg3); border:1px solid var(--border);
+  border-radius:8px; padding:10px 14px;
+  font-family:'IBM Plex Mono',monospace; font-size:12px;
+  color: var(--text); outline:none; transition:border .2s;
+}
+.query-input:focus { border-color: var(--sage-dim); }
+.btn {
+  background: var(--sage-dim); color:#fff; border:none;
+  border-radius:8px; padding:10px 18px; cursor:pointer;
+  font-family:'IBM Plex Mono',monospace; font-size:11px;
+  transition: background .2s; white-space:nowrap;
+}
+.btn:hover { background: var(--sage); }
+.btn.secondary {
+  background: var(--bg3); border: 1px solid var(--border); color: var(--muted);
+}
+.btn.secondary:hover { border-color: var(--sage-dim); color: var(--text); }
+.btn.danger { background: #3d1c1c; border: 1px solid #6e2929; color: var(--red); }
+.btn.danger:hover { background: #6e2929; }
+
+/* ── Memory chunks ── */
+.mem-chunk {
+  background: var(--bg); border: 1px solid var(--border);
+  border-left: 3px solid var(--sage-dim);
+  border-radius: 0 8px 8px 0; padding: 12px;
+  margin-bottom: 10px; font-size: 12px; line-height: 1.7;
+  opacity:0; transform: translateX(-8px);
+  animation: slideIn .35s ease forwards;
+}
+@keyframes slideIn { to{opacity:1;transform:translateX(0)} }
+.mem-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+.mem-meta { font-size:10px; color: var(--muted); font-family:'IBM Plex Mono',monospace; }
+.score-badge {
+  font-family:'IBM Plex Mono',monospace; font-size:10px;
+  padding:2px 8px; border-radius:20px;
+  background: var(--sage-glow); color: var(--sage);
+  border: 1px solid var(--sage-dim);
+}
+.mem-text { color: #c9d1d9; font-family:'IBM Plex Mono',monospace; font-size:11px; }
+.mem-highlight { color: var(--sage); }
+
+/* ── Chat window ── */
+.chat-win {
+  background: var(--bg); border-radius: 10px;
+  padding: 16px; min-height: 260px; max-height: 340px;
+  overflow-y: auto; display:flex; flex-direction:column; gap:12px;
+}
+.msg { max-width:80%; line-height:1.65; font-size:13px; border-radius:12px; padding:11px 14px; }
+.msg.user {
+  align-self:flex-end;
+  background: var(--sage-dim); color:#fff;
+  border-radius:12px 12px 3px 12px;
+}
+.msg.bot {
+  align-self:flex-start;
+  background: var(--bg2); border:1px solid var(--border);
+  border-radius:12px 12px 12px 3px;
+  font-family:'Playfair Display',serif; color:var(--text);
+}
+.msg.bot.crisis  { border-color:var(--red);  background:#1c0f0f; }
+.msg.bot .mem-note {
+  font-family:'IBM Plex Mono',monospace; font-size:9px;
+  color: var(--muted); margin-top:8px; padding-top:8px;
+  border-top:1px solid var(--border);
+}
+.typing { display:flex; gap:4px; padding:11px 14px; align-self:flex-start;
+  background:var(--bg2); border:1px solid var(--border); border-radius:12px; }
+.dot { width:7px;height:7px;border-radius:50%;background:var(--sage-dim);
+  animation:bounce .9s infinite; }
+.dot:nth-child(2){animation-delay:.15s}
+.dot:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+
+.chat-input-row { display:flex;gap:10px;margin-top:12px; }
+.chat-input {
+  flex:1; background:var(--bg3); border:1px solid var(--border);
+  border-radius:8px; padding:10px 14px;
+  font-family:'IBM Plex Sans',sans-serif; font-size:13px;
+  color:var(--text); outline:none; resize:none; transition:border .2s;
+}
+.chat-input:focus { border-color:var(--sage-dim); }
+
+/* ── Session timer ── */
+.session-bar {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 14px; background:var(--bg3);
+  border:1px solid var(--border); border-radius:8px; margin-bottom:12px;
+  font-size:11px; font-family:'IBM Plex Mono',monospace;
+}
+.session-bar .timer { color:var(--sage); }
+.session-bar .limit { color:var(--muted); margin-left:auto; }
+.session-progress { height:3px; background:var(--border); border-radius:2px; margin-top:6px; overflow:hidden; }
+.session-fill { height:100%; background:var(--sage); border-radius:2px; transition:width 1s linear; }
+
+/* ── Phase 3 ── */
+.scenario-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+.scenario-btn {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:10px; padding:13px; cursor:pointer; text-align:left;
+  transition:all .2s; font-family:'IBM Plex Sans',sans-serif;
+}
+.scenario-btn:hover { border-color:var(--sage-dim); transform:translateY(-2px); }
+.scenario-btn.active { border-color:var(--sage); background:var(--sage-glow); }
+.sc-icon { font-size:22px; margin-bottom:6px; }
+.sc-name { font-size:12px; color:var(--text); font-weight:500; }
+.sc-sub  { font-size:10px; color:var(--muted); margin-top:2px; }
+
+.distress-meter { margin:12px 0; }
+.dm-row { display:flex; justify-content:space-between; font-size:11px;
+  font-family:'IBM Plex Mono',monospace; color:var(--muted); margin-bottom:6px; }
+.dm-track { height:10px; background:var(--bg3); border-radius:5px; overflow:hidden; border:1px solid var(--border); }
+.dm-fill  { height:100%; border-radius:5px; transition:width .9s cubic-bezier(.4,0,.2,1), background .4s; }
+
+.flags { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
+.flag {
+  font-size:9px; padding:3px 10px; border-radius:20px;
+  background:var(--bg3); border:1px solid var(--border);
+  color:var(--muted); font-family:'IBM Plex Mono',monospace;
+  letter-spacing:.5px; text-transform:uppercase;
+}
+.flag.on { background:#3d1c1c; border-color:#6e2929; color:var(--red); }
+.flag.warn { background:#2d1f0a; border-color:#5c3d10; color:var(--amber); }
+
+.transcript-box {
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:8px; padding:10px 14px; margin:10px 0;
+  font-size:12px; font-family:'IBM Plex Mono',monospace; color:#79c0ff;
+  display:none;
+}
+.transcript-box::before { content:'🎙 '; color:var(--muted); }
+
+.response-box {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:10px; padding:16px;
+  font-family:'Playfair Display',serif; font-size:14px;
+  line-height:1.8; color:var(--text); min-height:80px;
+  white-space:pre-line; transition:border-color .3s;
+}
+.response-box.crisis  { border-color:var(--red); background:#1c0f0f; }
+.response-box.calming { border-color:var(--amber); background:#1c1508; }
+.response-box.safe    { border-color:var(--sage-dim); }
+
+/* ── Mood tracker panel ── */
+.mood-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:16px; }
+.mood-btn {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:10px; padding:14px 8px; cursor:pointer; text-align:center;
+  transition:all .2s; font-family:'IBM Plex Sans',sans-serif;
+}
+.mood-btn:hover { transform:translateY(-3px); border-color:var(--sage-dim); }
+.mood-btn.sel { border-color:var(--sage); background:var(--sage-glow); }
+.mood-emoji { font-size:24px; }
+.mood-label { font-size:9px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-top:6px; }
+
+.journal-input {
+  width:100%; background:var(--bg3); border:1px solid var(--border);
+  border-radius:8px; padding:12px; color:var(--text);
+  font-family:'Playfair Display',serif; font-size:13px; line-height:1.7;
+  min-height:90px; resize:vertical; outline:none; transition:border .2s;
+}
+.journal-input:focus { border-color:var(--sage-dim); }
+.journal-entries { margin-top:14px; display:flex; flex-direction:column; gap:8px; }
+.journal-entry {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:8px; padding:12px; font-size:12px;
+  animation: fadeUp .3s ease;
+}
+.je-head { display:flex; justify-content:space-between; margin-bottom:6px; }
+.je-date { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--muted); }
+.je-mood { font-size:14px; }
+.je-text { color:#c9d1d9; line-height:1.6; font-family:'Playfair Display',serif; }
+
+/* ── Breathing exercise ── */
+.breath-container { text-align:center; padding:20px 0; }
+.breath-circle {
+  width:120px; height:120px; border-radius:50%; margin:0 auto 20px;
+  background: radial-gradient(circle, var(--sage-glow) 0%, transparent 70%);
+  border:2px solid var(--sage-dim);
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-family:'IBM Plex Mono',monospace; color:var(--sage);
+  transition:transform 4s ease-in-out, box-shadow 4s ease-in-out;
+  cursor:pointer;
+}
+.breath-circle.inhale { transform:scale(1.5); box-shadow:0 0 30px var(--sage-glow); }
+.breath-circle.exhale { transform:scale(1); box-shadow:none; }
+.breath-text { font-family:'Playfair Display',serif; font-size:20px; color:var(--text); }
+.breath-sub  { font-size:12px; color:var(--muted); font-family:'IBM Plex Mono',monospace; margin-top:4px; }
+.breath-start {
+  background:var(--sage-dim); color:#fff; border:none;
+  border-radius:20px; padding:10px 28px; cursor:pointer;
+  font-family:'IBM Plex Mono',monospace; font-size:12px;
+  margin-top:16px; transition:background .2s;
+}
+.breath-start:hover { background:var(--sage); }
+
+/* ── Pipeline vis (bottom of RAG) ── */
+.pipeline { display:flex; align-items:center; gap:0; margin-top:16px; }
+.pip-step {
+  flex:1; text-align:center; padding:10px 6px;
+  border:1px solid var(--border); background:var(--bg2);
+  font-size:9px; font-family:'IBM Plex Mono',monospace;
+  color:var(--muted); letter-spacing:1px; text-transform:uppercase;
+  transition:all .3s;
+}
+.pip-step:first-child { border-radius:8px 0 0 8px; }
+.pip-step:last-child  { border-radius:0 8px 8px 0; }
+.pip-step.done { border-color:var(--sage-dim); background:var(--sage-glow); color:var(--sage); }
+.pip-step.active { border-color:var(--sage); background:var(--sage-glow); color:var(--sage); animation:glowPip 1s infinite; }
+@keyframes glowPip { 0%,100%{box-shadow:none}50%{box-shadow:0 0 8px var(--sage-dim)} }
+.pip-arrow { color:var(--border); font-size:12px; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width:4px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--bg3); border-radius:2px; }
+
+/* ── Responsive ── */
+@media(max-width:700px){
+  .shell { grid-template-columns:1fr; }
+  .sidebar { display:none; }
+  .stats-grid { grid-template-columns:repeat(2,1fr); }
+  .scenario-grid { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<canvas class="bg-canvas" id="bgCanvas"></canvas>
+
+<div class="shell">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="logo-area">
+      <div class="logo">
+        <div class="logo-leaf"><span>🌿</span></div>
+        Sahara
+      </div>
+      <div class="tagline">Private Memory Oasis</div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-section">Pipeline</div>
+      <div class="nav-item active" onclick="show('rag',this)">
+        <span class="icon">🗄️</span> RAG Engine
+        <span class="nav-badge">P1</span>
+      </div>
+      <div class="nav-item" onclick="show('chat',this)">
+        <span class="icon">💬</span> LLM Chat
+        <span class="nav-badge">P2</span>
+      </div>
+      <div class="nav-item" onclick="show('voice',this)">
+        <span class="icon">🎙️</span> Voice AI
+        <span class="nav-badge">P3</span>
+      </div>
+
+      <div class="nav-section" style="margin-top:12px">Wellness</div>
+      <div class="nav-item" onclick="show('mood',this)">
+        <span class="icon">🌙</span> Mood Journal
+      </div>
+      <div class="nav-item" onclick="show('breath',this)">
+        <span class="icon">🌬️</span> Breathing
+      </div>
+
+      <div class="nav-section" style="margin-top:12px">Settings</div>
+      <div class="nav-item" onclick="deleteAll()">
+        <span class="icon">🗑️</span> Clear Memories
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="privacy-pill">
+        <div class="privacy-dot"></div>
+        100% On-Device · No Cloud
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="page-title" id="pageTitle">RAG <span>Engine</span></div>
+      <div class="topbar-right">
+        <div class="status-chip">
+          <div class="pulse"></div>
+          Model Ready · Phi-3 Mini
+        </div>
+        <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace" id="clockEl"></div>
+      </div>
+    </div>
+
+    <!-- ══ RAG PANEL ══ -->
+    <div class="panel active" id="panel-rag">
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-num" id="s-msg">0</div>
+          <div class="stat-label">Messages Parsed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="s-chunk">0</div>
+          <div class="stat-label">Chunks Created</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="s-vec">0</div>
+          <div class="stat-label">Vectors Indexed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="s-sender">0</div>
+          <div class="stat-label">Senders Detected</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">📱 WhatsApp Export · _chat.txt</div>
+          <span style="font-size:10px;color:var(--sage);font-family:'IBM Plex Mono',monospace">PARSED ✓</span>
+        </div>
+        <div class="card-body" style="padding:0">
+          <div class="chat-viewer" id="chatViewer"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">🔍 Semantic Memory Retrieval</div>
+        </div>
+        <div class="card-body">
+          <div class="query-bar">
+            <input class="query-input" id="qInput" placeholder="Missing Aai during Diwali... / आई आठवण येत आहे" value="Missing Aai during festival celebration">
+            <button class="btn" onclick="doQuery()">Search</button>
+            <button class="btn secondary" onclick="randomQuery()">Random</button>
+          </div>
+          <div id="qResults"></div>
+        </div>
+      </div>
+
+      <div class="pipeline" id="pipelineVis">
+        <div class="pip-step done" id="pp1">📄 Parse</div>
+        <div class="pip-step done" id="pp2">✂️ Chunk</div>
+        <div class="pip-step done" id="pp3">🧮 Embed</div>
+        <div class="pip-step done" id="pp4">🗄️ Store</div>
+        <div class="pip-step" id="pp5">🔍 Retrieve</div>
+      </div>
+    </div>
+
+    <!-- ══ CHAT PANEL ══ -->
+    <div class="panel" id="panel-chat">
+
+      <div class="session-bar">
+        <span>⏱</span>
+        <span class="timer" id="sessionTimer">00:00</span>
+        <div style="flex:1;margin:0 10px">
+          <div class="session-progress">
+            <div class="session-fill" id="sessionFill" style="width:0%"></div>
+          </div>
+        </div>
+        <span class="limit">20 min session limit</span>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">💬 LLM Chat · Phi-3 Mini · On-Device</div>
+          <button class="btn secondary" style="font-size:10px;padding:5px 10px" onclick="clearChat()">Clear</button>
+        </div>
+        <div class="card-body" style="padding:10px">
+          <div class="chat-win" id="chatWin">
+            <div class="msg bot">Namaste 🙏 I'm Sahara. Your memories are safe with me — share what's in your heart.<div class="mem-note">🔒 No data leaves your device</div></div>
+          </div>
+          <div class="chat-input-row">
+            <textarea class="chat-input" id="chatInput" rows="2"
+              placeholder="Aai ki yaad aa rahi hai... / आई आठवण येत आहे..."
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"></textarea>
+            <button class="btn" onclick="sendMsg()">Send</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">💡 Suggested Prompts</div></div>
+        <div class="card-body" style="display:flex;flex-wrap:wrap;gap:8px">
+          <button class="btn secondary" style="font-size:11px" onclick="setPrompt('Aai ki bahut yaad aa rahi hai aaj Diwali pe')">Missing Aai — Diwali</button>
+          <button class="btn secondary" style="font-size:11px" onclick="setPrompt('Baba ke saath woh funny modak wala moment yaad aaya')">Baba — Modak memory</button>
+          <button class="btn secondary" style="font-size:11px" onclick="setPrompt('Ghar se door hoon, bahut akela lag raha hai')">Feeling lonely</button>
+          <button class="btn secondary" style="font-size:11px" onclick="setPrompt('Aai tuzhi khup aathvan yet aahe')">Marathi grief</button>
+          <button class="btn danger"    style="font-size:11px" onclick="setPrompt('jeena nahi chahta aaj')">🆘 Crisis Test</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ VOICE PANEL ══ -->
+    <div class="panel" id="panel-voice">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="card">
+          <div class="card-head"><div class="card-title">🎙️ Voice Scenarios</div></div>
+          <div class="card-body" style="padding:10px">
+            <div class="scenario-grid" id="scGrid"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div class="card-title">📊 Distress Analysis</div></div>
+          <div class="card-body">
+            <div class="transcript-box" id="tBox"></div>
+            <div class="distress-meter">
+              <div class="dm-row">
+                <span>Distress Score</span>
+                <span id="dVal" style="font-family:'IBM Plex Mono',monospace">—</span>
+              </div>
+              <div class="dm-track">
+                <div class="dm-fill" id="dFill" style="width:0%;background:var(--sage)"></div>
+              </div>
+            </div>
+            <div class="flags" id="flagsWrap">
+              <span class="flag">pitch variance</span>
+              <span class="flag">erratic energy</span>
+              <span class="flag">fast speech</span>
+              <span class="flag">high pitch</span>
+            </div>
+            <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:8px">VOSK STT · LIBROSA ANALYSIS · OFFLINE</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">🌿 Sahara Response</div></div>
+        <div class="card-body" style="padding:10px">
+          <div class="response-box" id="rBox">Select a voice scenario to see Sahara respond...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ MOOD JOURNAL PANEL ══ -->
+    <div class="panel" id="panel-mood">
+      <div class="card">
+        <div class="card-head"><div class="card-title">🌙 How are you feeling right now?</div></div>
+        <div class="card-body">
+          <div class="mood-grid" id="moodGrid">
+            <div class="mood-btn" onclick="selectMood(this,'😔','Sad')"><div class="mood-emoji">😔</div><div class="mood-label">Sad</div></div>
+            <div class="mood-btn" onclick="selectMood(this,'😰','Anxious')"><div class="mood-emoji">😰</div><div class="mood-label">Anxious</div></div>
+            <div class="mood-btn" onclick="selectMood(this,'😐','Numb')"><div class="mood-emoji">😐</div><div class="mood-label">Numb</div></div>
+            <div class="mood-btn" onclick="selectMood(this,'🌤','Better')"><div class="mood-emoji">🌤</div><div class="mood-label">Better</div></div>
+            <div class="mood-btn" onclick="selectMood(this,'🌿','Peaceful')"><div class="mood-emoji">🌿</div><div class="mood-label">Peaceful</div></div>
+          </div>
+          <textarea class="journal-input" id="jInput" placeholder="Write what's on your mind today... (Hindi, Marathi, or English)"></textarea>
+          <div style="display:flex;gap:10px;margin-top:10px">
+            <button class="btn" onclick="saveEntry()">Save Entry</button>
+            <button class="btn secondary" onclick="getAIReflection()">✨ AI Reflection</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">📖 Past Entries</div></div>
+        <div class="card-body" style="padding:10px">
+          <div class="journal-entries" id="jEntries">
+            <div style="font-size:12px;color:var(--muted);text-align:center;padding:16px">No entries yet. Write your first one above.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ BREATHING PANEL ══ -->
+    <div class="panel" id="panel-breath">
+      <div class="card">
+        <div class="card-head"><div class="card-title">🌬️ 4-7-8 Breathing Exercise</div></div>
+        <div class="card-body">
+          <div class="breath-container">
+            <div class="breath-circle exhale" id="breathCircle" onclick="toggleBreath()">
+              <span id="breathCount">4</span>
+            </div>
+            <div class="breath-text" id="breathLabel">Ready to Begin</div>
+            <div class="breath-sub" id="breathSub">Click the circle or press Start</div>
+            <div style="margin-top:16px;display:flex;gap:10px;justify-content:center">
+              <button class="breath-start" onclick="toggleBreath()" id="breathBtn">Start</button>
+              <button class="breath-start" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted)" onclick="stopBreath()">Stop</button>
+            </div>
+            <div style="margin-top:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center">
+              <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:20px;color:var(--sage)" id="bcIn">4</div>
+                <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Inhale</div>
+              </div>
+              <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:20px;color:var(--amber)" id="bcHold">7</div>
+                <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Hold</div>
+              </div>
+              <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:20px;color:var(--blue)" id="bcEx">8</div>
+                <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Exhale</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">💡 Why Breathing Helps in Grief</div></div>
+        <div class="card-body">
+          <p style="font-family:'Playfair Display',serif;font-size:14px;color:#c9d1d9;line-height:1.8">
+            Grief activates our nervous system's fight-or-flight response. The 4-7-8 technique stimulates the vagus nerve, shifting the body from stress to calm. Regular practice reduces cortisol, improves sleep, and creates space to process emotions safely.
+          </p>
+          <p style="font-size:11px;color:var(--muted);margin-top:10px;font-family:'IBM Plex Mono',monospace">
+            🩺 Developed by Dr. Andrew Weil · Used in grief therapy programs globally
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+// ══ DATA ══════════════════════════════════════════════════════════════════════
+
+const CHAT = [
+  {d:"01/11/23",s:"Aai",  c:"aai",  t:"Arya, aaj Ganesh Chaturthi la tula miss karat ahe re 😢"},
+  {d:"01/11/23",s:"Arya", c:"arya", t:"Aai mi pan tumhala miss karto... Pune faar door vatat ahe"},
+  {d:"01/11/23",s:"Aai",  c:"aai",  t:"Lakshat aahe ka last year kiniti haslo hoto modak karanaryavar? 😂"},
+  {d:"01/11/23",s:"Baba", c:"baba", t:"Mi chef aahe! Modak ekdum perfect hotate!"},
+  {d:"01/11/23",s:"Arya", c:"arya", t:"Baba tumche modak platform var padlele 😂😂"},
+  {d:"01/11/23",s:"Aai",  c:"aai",  t:"Arya tula ghari yayche aahe na Diwali la?"},
+  {d:"01/11/23",s:"Arya", c:"arya", t:"Ho Aai, pakka! Faraala sathi yenar aahe 🙏"},
+  {d:"15/01/24",s:"Aai",  c:"aai",  t:"Sankranti la tilgul ghya, god god bola 🎊"},
+  {d:"15/01/24",s:"Aai",  c:"aai",  t:"Arya I am always with you beta ❤️"},
+  {d:"15/01/24",s:"Arya", c:"arya", t:"Aai khup aathvan yet aahe tuzhi..."},
+  {d:"20/03/24",s:"Aai",  c:"aai",  t:"Bol re beta, mi ahe. Kahi pan bol."},
+  {d:"20/03/24",s:"Aai",  c:"aai",  t:"Tu strong aahe. Remember board exams? Same strength. 💪"},
+  {d:"20/03/24",s:"Arya", c:"arya", t:"Aai you always know what to say ❤️"},
+  {d:"20/03/24",s:"Aai",  c:"aai",  t:"Ghari ye lakar. Tuzya aavdacha varan bhat karun thevte 😊"},
+  {d:"14/04/24",s:"Aai",  c:"aai",  t:"Happy Gudi Padwa! Lakshat ahe Shrikhand banawales? 😄"},
+  {d:"14/04/24",s:"Baba", c:"baba", t:"Tu nekmi try karat rahate, he mahatvache aahe beta 🙏"},
+  {d:"23/08/24",s:"Aai",  c:"aai",  t:"Raksha Bandhan la tujha wait karto ahe re... ghar sunna vatat ahe"},
+  {d:"23/08/24",s:"Arya", c:"arya", t:"Aai mi phone karnar aahe raat la 🙏 miss you so much"},
+  {d:"23/08/24",s:"Aai",  c:"aai",  t:"Arya tula maher aathavtat ka? Lahan asatana kiniti khelt hota"},
+  {d:"23/08/24",s:"Arya", c:"arya", t:"Ho Aai, te diwas khup sundar hote 😢❤️"},
+];
+
+const CHUNKS = [
+  {text:"[01/11/23] Aai: Ganesh Chaturthi la tula miss karat ahe 😢\n[01/11/23] Arya: Aai mi pan tumhala miss karto\n[01/11/23] Aai: kiniti haslo hoto modak karanaryavar? 😂",
+   date:"01/11/23", senders:"Aai, Arya",
+   keys:["miss","festival","ganesh","chaturthi","modak","diwali","faral","aai","yaad"]},
+  {text:"[01/11/23] Baba: Mi chef aahe! Modak perfect hotate!\n[01/11/23] Arya: Baba tumche modak platform var padlele 😂\n[01/11/23] Aai: Diwali la ghari yayche aahe na?",
+   date:"01/11/23", senders:"Baba, Arya, Aai",
+   keys:["baba","chef","modak","funny","laugh","diwali","ghar","platform"]},
+  {text:"[15/01/24] Aai: Sankranti la tilgul ghya 🎊\n[15/01/24] Aai: I am always with you beta ❤️\n[15/01/24] Arya: Aai khup aathvan yet aahe",
+   date:"15/01/24", senders:"Aai, Arya",
+   keys:["sankranti","always","love","with","beta","festival","aathvan","miss"]},
+  {text:"[20/03/24] Aai: Bol re beta, mi ahe\n[20/03/24] Aai: Tu strong aahe. Board exams yaad ahe? 💪\n[20/03/24] Aai: Ghari ye. Varan bhat thevte 😊",
+   date:"20/03/24", senders:"Aai",
+   keys:["strong","hard","miss","ghar","varan","support","board","exam","bol","lonely"]},
+  {text:"[14/04/24] Aai: Gudi Padwa! Shrikhand banawales! 😄\n[14/04/24] Baba: Tu nekmi try karat rahate 🙏",
+   date:"14/04/24", senders:"Aai, Baba",
+   keys:["gudi","padwa","shrikhand","celebrate","proud","try","festival"]},
+  {text:"[23/08/24] Aai: Raksha Bandhan la tujha wait karto 😢\n[23/08/24] Arya: Miss you so much Aai 🙏\n[23/08/24] Aai: Maher aathavtat ka? Lahan asatana khelt hota",
+   date:"23/08/24", senders:"Aai, Arya",
+   keys:["raksha","bandhan","wait","miss","maher","childhood","home","akela","lonely","aathvan"]},
+];
+
+const RANDOM_QUERIES = [
+  "Missing Aai during festival","Baba funny moments","Feeling lonely away from home",
+  "Sankranti memories","Childhood memories at home","Ghar ki yaad","Raksha Bandhan",
+];
+
+const CRISIS_KW = ["suicide","kill myself","end my life","want to die","jeena nahi","marna","jiv dyaycha","sampvaycha","nako aata"];
+const CRISIS_R  = `💙 Tum akele nahi ho.\n\nPlease abhi inhe call karo:\n  • iCall:       9152987821\n  • Vandrevala:  1860-2662-345 (24/7)\n  • SNEHI:       044-24640050\n\nSahara tumhare saath hai. 🙏`;
+
+const SCENARIOS = [
+  {icon:"😌",name:"Calm Voice",    sub:"Normal grief expression",      label:"calm",
+   tr:"Aai ki bahut yaad aa rahi hai aaj...",
+   d:{s:.12,l:"calm",c:"var(--sage)",   f:[]}},
+  {icon:"🗣️",name:"Marathi Voice", sub:"Regional language",            label:"marathi",
+   tr:"Aai, tuzhi aathvan yet aahe... Ganesh Chaturthi var khoop miss karto",
+   d:{s:.20,l:"calm",c:"var(--sage)",   f:[]}},
+  {icon:"😔",name:"Mild Distress", sub:"Pitch variance detected",      label:"mild",
+   tr:"Miss kar raha hoon ghar ko, Diwali pe akela hoon",
+   d:{s:.38,l:"mild",c:"var(--amber)",  f:["pitch variance"]}},
+  {icon:"😰",name:"High Distress", sub:"Calming protocol triggered",   label:"high",
+   tr:"Sab kuch bahut overwhelming hai, sambhalna mushkil ho raha hai",
+   d:{s:.74,l:"high",c:"var(--red)",    f:["high pitch","erratic energy","fast speech"]}},
+  {icon:"🆘",name:"Crisis Mode",   sub:"Helplines shown immediately",  label:"crisis",
+   tr:"jeena nahi chahta aaj",
+   d:{s:.45,l:"mild",c:"var(--amber)",  f:["pitch variance"]}},
+];
+
+const ALL_FLAGS = ["pitch variance","erratic energy","fast speech","high pitch"];
+
+// ══ STATE ═════════════════════════════════════════════════════════════════════
+let selectedMood = null;
+let journalEntries = [];
+let breathInterval = null, breathRunning = false;
+let breathPhase = 0; // 0=inhale,1=hold,2=exhale
+let breathSeconds = 4;
+let sessionStart = null, sessionInterval = null;
+
+// ══ INIT ══════════════════════════════════════════════════════════════════════
+window.addEventListener('load', () => {
+  renderChat();
+  animNum('s-msg', 0, 20, 900);
+  setTimeout(()=>animNum('s-chunk', 0, 6, 700), 200);
+  setTimeout(()=>animNum('s-vec',   0, 6, 700), 400);
+  setTimeout(()=>animNum('s-sender',0, 3, 500), 600);
+  setTimeout(doQuery, 1000);
+  renderScenarios();
+  startClock();
+  bgParticles();
+});
+
+// ══ NAV ═══════════════════════════════════════════════════════════════════════
+const TITLES = {rag:'RAG <span>Engine</span>',chat:'LLM <span>Chat</span>',
+  voice:'Voice <span>AI</span>',mood:'Mood <span>Journal</span>',breath:'Breathing <span>Exercise</span>'};
+
+function show(id, el) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('pageTitle').innerHTML = TITLES[id];
+  if (id === 'chat' && !sessionStart) startSession();
+}
+
+// ══ RAG ═══════════════════════════════════════════════════════════════════════
+function renderChat() {
+  document.getElementById('chatViewer').innerHTML = CHAT.map(m=>
+    `<div class="cl"><span class="cl-date">${m.d}</span><span class="cl-name ${m.c}">${m.s}:</span><span class="cl-msg">${m.t}</span></div>`
+  ).join('');
+}
+
+function retrieve(q, k=3) {
+  const qw = q.toLowerCase().split(/\s+/).filter(Boolean);
+  return CHUNKS.map(c=>{
+    const hits = qw.filter(w => c.keys.some(k=>k.includes(w)||w.includes(k))).length;
+    return {...c, score: Math.min(.97, .32 + (hits/qw.length)*0.58) };
+  }).sort((a,b)=>b.score-a.score).slice(0,k).filter(c=>c.score>.33)
+    .map(c=>({...c, score: c.score.toFixed(3)}));
+}
+
+function doQuery() {
+  const q = document.getElementById('qInput').value.trim() || 'Missing Aai';
+  const res = retrieve(q, 3);
+  document.getElementById('pp5').classList.add('done');
+  const el = document.getElementById('qResults');
+  if (!res.length) {
+    el.innerHTML = `<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px;font-family:'IBM Plex Mono',monospace">No matching memories found for "${q}"</div>`;
+    return;
+  }
+  el.innerHTML = res.map((r,i)=>
+    `<div class="mem-chunk" style="animation-delay:${i*.12}s">
+      <div class="mem-head">
+        <div class="mem-meta">📅 ${r.date} &nbsp;·&nbsp; 👤 ${r.senders}</div>
+        <span class="score-badge">${r.score}</span>
+      </div>
+      <div class="mem-text">${r.text.split('\n').map(l=>`<div>${l}</div>`).join('')}</div>
+    </div>`
+  ).join('');
+}
+
+function randomQuery() {
+  const q = RANDOM_QUERIES[Math.floor(Math.random()*RANDOM_QUERIES.length)];
+  document.getElementById('qInput').value = q;
+  doQuery();
+}
+
+// ══ CHAT ══════════════════════════════════════════════════════════════════════
+const REFLECTIONS = [
+  (mem,msg) => `💙 Main samajh sakta/sakti hoon...\n\n🌿 Ek pyaari yaad:\n"${mem}"\n\nYeh mohabbat hamesha tumhare saath hai. Aaj ek gehri saans lo. 🌸`,
+  (mem,msg) => `💙 Tumhara dard bilkul real hai, aur main sun raha/rahi hoon...\n\n🌿 Yaad hai jab:\n"${mem}"\n\nAisa pyaar kabhi khatam nahi hota. Ek glass paani piyo aur apna khayal rakho. 💧`,
+  (mem,msg) => `💙 Is waqt akela feel karna swabhavik hai...\n\n🌿 Ek khoobsurat pal tha:\n"${mem}"\n\nYeh rishta tumhare dil mein hamesha zinda hai. 🙏`,
+];
+
+function llmResponse(msg, mems) {
+  if (!mems.length) return "💙 Main sun raha/rahi hoon... Yeh waqt mushkil hai, lekin tum akele nahi ho. Apna khayal rakho. 🌿";
+  const top  = mems[0];
+  const line = top.text.split('\n').find(l=>l.includes('Aai')||l.includes('Baba')) || top.text.split('\n')[0];
+  const tmpl = REFLECTIONS[Math.floor(Math.random()*REFLECTIONS.length)];
+  return tmpl(line, msg);
+}
+
+function sendMsg() {
+  const inp = document.getElementById('chatInput');
+  const msg = inp.value.trim(); if (!msg) return;
+  inp.value = '';
+  const win = document.getElementById('chatWin');
+  addBubble(win, 'user', msg);
+
+  if (CRISIS_KW.some(kw=>msg.toLowerCase().includes(kw))) {
+    setTimeout(()=>{ addBubble(win, 'bot crisis', CRISIS_R); }, 500);
+    return;
+  }
+  win.innerHTML += `<div class="typing" id="typDot"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  win.scrollTop = win.scrollHeight;
+  setTimeout(()=>{
+    document.getElementById('typDot')?.remove();
+    const mems = retrieve(msg, 3);
+    const resp = llmResponse(msg, mems);
+    const note = mems[0] ? `🧠 Memory: ${mems[0].date} · ${mems[0].senders} · score ${mems[0].score}` : '';
+    addBubble(win, 'bot', resp, note);
+  }, 1500);
+}
+
+function addBubble(win, cls, text, note='') {
+  const d = document.createElement('div');
+  d.className = 'msg ' + cls;
+  d.innerHTML = text.replace(/\n/g,'<br>') + (note?`<div class="mem-note">${note}</div>`:'');
+  win.appendChild(d);
+  win.scrollTop = win.scrollHeight;
+}
+
+function clearChat() {
+  document.getElementById('chatWin').innerHTML = '<div class="msg bot">Namaste 🙏 Main phir se yahaan hoon. Share karo jo dil mein hai.<div class="mem-note">🔒 No data leaves your device</div></div>';
+}
+
+function setPrompt(t) {
+  document.getElementById('chatInput').value = t;
+  show('chat', document.querySelector('.nav-item:nth-child(2)'));
+  setTimeout(sendMsg, 300);
+}
+
+// ══ SESSION TIMER ══════════════════════════════════════════════════════════════
+function startSession() {
+  sessionStart = Date.now();
+  sessionInterval = setInterval(()=>{
+    const s  = Math.floor((Date.now()-sessionStart)/1000);
+    const m  = Math.floor(s/60), ss = s%60;
+    document.getElementById('sessionTimer').textContent = `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+    document.getElementById('sessionFill').style.width = Math.min(s/1200*100,100)+'%';
+    if (s >= 1200) { // 20 min
+      clearInterval(sessionInterval);
+      addBubble(document.getElementById('chatWin'), 'bot',
+        '🌿 We\'ve been talking for 20 minutes. Take a gentle break — breathe, drink water, and rest. I\'ll be here when you return. 💙');
+    }
+  }, 1000);
+}
+
+// ══ VOICE ═════════════════════════════════════════════════════════════════════
+function renderScenarios() {
+  document.getElementById('scGrid').innerHTML = SCENARIOS.map((s,i)=>
+    `<button class="scenario-btn" onclick="runScenario(${i},this)">
+      <div class="sc-icon">${s.icon}</div>
+      <div class="sc-name">${s.name}</div>
+      <div class="sc-sub">${s.sub}</div>
+    </button>`
+  ).join('');
+}
+
+function runScenario(i, btn) {
+  document.querySelectorAll('.scenario-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const s = SCENARIOS[i], d = s.d;
+
+  const tb = document.getElementById('tBox');
+  tb.style.display = 'block'; tb.textContent = s.tr;
+
+  document.getElementById('dVal').textContent = `${d.s} · ${d.l.toUpperCase()}`;
+  const fill = document.getElementById('dFill');
+  fill.style.width = '0%'; fill.style.background = d.c;
+  setTimeout(()=>{ fill.style.width = (d.s*100)+'%'; }, 80);
+
+  document.getElementById('flagsWrap').innerHTML = ALL_FLAGS.map(f=>
+    `<span class="flag ${d.f.includes(f)?'on':''}">${f}</span>`
+  ).join('');
+
+  const rb = document.getElementById('rBox');
+  rb.className='response-box'; rb.textContent='...';
+  setTimeout(()=>{
+    if (s.label==='crisis') {
+      rb.className='response-box crisis'; rb.textContent = CRISIS_R;
+    } else if (s.label==='high') {
+      rb.className='response-box calming';
+      rb.textContent = "🌬️ Main sun raha/rahi hoon...\n\nPehle ek gehri saans lo.\nSaath mein... andar... aur bahar. 💙\n\nAb batao, kya chal raha hai?";
+    } else {
+      rb.className='response-box safe';
+      const mems = retrieve(s.tr, 2);
+      rb.textContent = llmResponse(s.tr, mems);
+    }
+  }, 700);
+}
+
+// ══ MOOD JOURNAL ══════════════════════════════════════════════════════════════
+function selectMood(el, emoji, label) {
+  document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+  selectedMood = {emoji, label};
+}
+
+function saveEntry() {
+  const text = document.getElementById('jInput').value.trim();
+  if (!text) return;
+  const entry = {
+    date: new Date().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}),
+    time: new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),
+    mood: selectedMood || {emoji:'💭',label:'Unset'},
+    text
+  };
+  journalEntries.unshift(entry);
+  document.getElementById('jInput').value = '';
+  renderEntries();
+}
+
+function getAIReflection() {
+  const text = document.getElementById('jInput').value.trim();
+  if (!text) { alert('Please write something first.'); return; }
+  const reflections = [
+    "Your feelings are valid. Grief is not a sign of weakness — it is the price of love. 🌿",
+    "Sharing your pain, even with yourself, is an act of courage. Be gentle with yourself today. 💙",
+    "What you're feeling makes complete sense. Allow yourself to grieve at your own pace. 🕊️",
+    "Every memory you cherish is a testament to a love that was real and beautiful. Hold onto that. ❤️",
+    "Healing isn't linear. Some days will be harder than others — and that's okay. You are not alone. 🌸",
+  ];
+  const r = reflections[Math.floor(Math.random()*reflections.length)];
+  const entry = {
+    date: new Date().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}),
+    time: new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),
+    mood: {emoji:'✨', label:'AI Reflection'},
+    text: `Your note: "${text.slice(0,60)}..."\n\nSahara: ${r}`
+  };
+  journalEntries.unshift(entry);
+  renderEntries();
+}
+
+function renderEntries() {
+  const el = document.getElementById('jEntries');
+  if (!journalEntries.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px">No entries yet.</div>';
+    return;
+  }
+  el.innerHTML = journalEntries.map(e=>
+    `<div class="journal-entry">
+      <div class="je-head">
+        <div class="je-date">${e.date} · ${e.time}</div>
+        <div class="je-mood">${e.mood.emoji} <span style="font-size:10px;color:var(--muted)">${e.mood.label}</span></div>
+      </div>
+      <div class="je-text">${e.text.replace(/\n/g,'<br>')}</div>
+    </div>`
+  ).join('');
+}
+
+// ══ BREATHING ═════════════════════════════════════════════════════════════════
+const BREATH_PHASES = [
+  {label:'Inhale',sub:'Breathe in slowly through your nose',dur:4,  cls:'inhale',col:'var(--sage)'},
+  {label:'Hold',  sub:'Hold your breath gently',            dur:7,  cls:'inhale', col:'var(--amber)'},
+  {label:'Exhale',sub:'Breathe out slowly through your mouth',dur:8,cls:'exhale',col:'var(--blue)'},
+];
+
+function toggleBreath() {
+  if (breathRunning) stopBreath(); else startBreath();
+}
+
+function startBreath() {
+  breathRunning = true; breathPhase = 0; breathSeconds = BREATH_PHASES[0].dur;
+  document.getElementById('breathBtn').textContent = 'Pause';
+  runBreathStep();
+}
+
+function runBreathStep() {
+  if (!breathRunning) return;
+  const p = BREATH_PHASES[breathPhase];
+  const circle = document.getElementById('breathCircle');
+  circle.className = 'breath-circle ' + p.cls;
+  circle.style.borderColor = p.col;
+  document.getElementById('breathLabel').textContent = p.label;
+  document.getElementById('breathSub').textContent   = p.sub;
+  breathSeconds = p.dur;
+  document.getElementById('breathCount').textContent = breathSeconds;
+
+  breathInterval = setInterval(()=>{
+    breathSeconds--;
+    document.getElementById('breathCount').textContent = Math.max(breathSeconds,0);
+    if (breathSeconds <= 0) {
+      clearInterval(breathInterval);
+      breathPhase = (breathPhase+1) % 3;
+      setTimeout(runBreathStep, 300);
+    }
+  }, 1000);
+}
+
+function stopBreath() {
+  breathRunning = false; clearInterval(breathInterval);
+  const circle = document.getElementById('breathCircle');
+  circle.className = 'breath-circle exhale'; circle.style.borderColor='';
+  document.getElementById('breathCount').textContent = '4';
+  document.getElementById('breathLabel').textContent = 'Ready to Begin';
+  document.getElementById('breathSub').textContent   = 'Click the circle or press Start';
+  document.getElementById('breathBtn').textContent   = 'Start';
+}
+
+// ══ HELPERS ═══════════════════════════════════════════════════════════════════
+function animNum(id, from, to, dur) {
+  const el = document.getElementById(id);
+  const step = (to-from)/(dur/16); let cur = from;
+  const t = setInterval(()=>{
+    cur = Math.min(cur+step, to);
+    el.textContent = Math.round(cur);
+    if (cur>=to) clearInterval(t);
+  },16);
+}
+
+function deleteAll() {
+  if (confirm('Delete all stored memories? This cannot be undone.')) {
+    alert('🗑️ All memories cleared. (In real app, ChromaDB collection is wiped.)');
+  }
+}
+
+function startClock() {
+  const el = document.getElementById('clockEl');
+  const tick = ()=>{ el.textContent = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); };
+  tick(); setInterval(tick,1000);
+}
+
+// ══ BG PARTICLES ══════════════════════════════════════════════════════════════
+function bgParticles() {
+  const c = document.getElementById('bgCanvas');
+  const ctx = c.getContext('2d');
+  c.width = window.innerWidth; c.height = window.innerHeight;
+  const pts = Array.from({length:40},()=>({
+    x:Math.random()*c.width, y:Math.random()*c.height,
+    r:Math.random()*1.5+.5, dx:(Math.random()-.5)*.15, dy:(Math.random()-.5)*.15,
+    o:Math.random()*.3+.1
+  }));
+  function draw(){
+    ctx.clearRect(0,0,c.width,c.height);
+    pts.forEach(p=>{
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(63,185,80,${p.o})`; ctx.fill();
+      p.x+=p.dx; p.y+=p.dy;
+      if(p.x<0||p.x>c.width) p.dx*=-1;
+      if(p.y<0||p.y>c.height) p.dy*=-1;
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+  window.addEventListener('resize',()=>{ c.width=window.innerWidth; c.height=window.innerHeight; });
+}
+</script>
+</body>
+</html>
