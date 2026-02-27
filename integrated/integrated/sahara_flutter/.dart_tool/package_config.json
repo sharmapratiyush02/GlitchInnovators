@@ -278,6 +278,12 @@
       "languageVersion": "3.2"
     },
     {
+      "name": "logging",
+      "rootUri": "file:///C:/Users/prati/AppData/Local/Pub/Cache/hosted/pub.dev/logging-1.2.0",
+      "packageUri": "lib/",
+      "languageVersion": "2.19"
+    },
+    {
       "name": "lottie",
       "rootUri": "file:///C:/Users/prati/AppData/Local/Pub/Cache/hosted/pub.dev/lottie-3.1.3",
       "packageUri": "lib/",
@@ -494,6 +500,18 @@
       "languageVersion": "3.2"
     },
     {
+      "name": "socket_io_client",
+      "rootUri": "file:///C:/Users/prati/AppData/Local/Pub/Cache/hosted/pub.dev/socket_io_client-2.0.3+1",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
+      "name": "socket_io_common",
+      "rootUri": "file:///C:/Users/prati/AppData/Local/Pub/Cache/hosted/pub.dev/socket_io_common-2.0.3",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
       "name": "source_span",
       "rootUri": "file:///C:/Users/prati/AppData/Local/Pub/Cache/hosted/pub.dev/source_span-1.10.0",
       "packageUri": "lib/",
@@ -584,7 +602,7 @@
       "languageVersion": "3.0"
     }
   ],
-  "generated": "2026-02-27T12:58:31.239303Z",
+  "generated": "2026-02-27T20:09:46.115392Z",
   "generator": "pub",
   "generatorVersion": "3.3.4"
 }

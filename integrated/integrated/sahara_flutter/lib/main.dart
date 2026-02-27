@@ -6,8 +6,10 @@ import 'theme/sahara_theme.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/chat_screen.dart';
+import 'screens/import_memories_screen.dart';
 import 'screens/journal_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/aasman/aasman_hub.dart';
 import 'widgets/auth_gate.dart';
 
 void main() {
@@ -54,6 +56,7 @@ class _MainShell extends StatelessWidget {
     final tabs = const [
       HomeScreen(),
       ChatScreen(),
+      AasmanHub(),
       JournalScreen(),
       SettingsScreen(),
     ];
@@ -77,6 +80,11 @@ class _MainShell extends StatelessWidget {
             icon: Icon(Icons.chat_bubble_outline),
             activeIcon: Icon(Icons.chat_bubble),
             label: 'Chat',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.nights_stay_outlined),
+            activeIcon: Icon(Icons.nights_stay),
+            label: 'Aasman',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.book_outlined),

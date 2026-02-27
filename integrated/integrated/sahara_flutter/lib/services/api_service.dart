@@ -1,17 +1,14 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../models/models.dart';
 
 class ApiService {
   // ────────────────────────────────────────────────────────────────────
-  // Base URL – change this to match your setup:
-  //   Android emulator   → http://10.0.2.2:5000
-  //   Physical device    → http://<your_laptop_ip>:5000
-  //   iOS simulator      → http://localhost:5000
+  // Base URL – running Flutter on Chrome, backend on same machine
   // ────────────────────────────────────────────────────────────────────
-  static const String _baseUrl = 'http://10.0.2.2:5000';
-  static const Duration _timeout = Duration(seconds: 60);
+  static const String _baseUrl = 'http://localhost:5000';
+  static const Duration _timeout = Duration(seconds: 90);
 
   // ── Health Check ────────────────────────────────────────────────────
   static Future<HealthStatus> checkHealth() async {
@@ -34,15 +31,18 @@ class ApiService {
   }
 
   // ── Import WhatsApp Chat ─────────────────────────────────────────────
-  /// Sends _chat.txt file to /import.
-  /// Returns number of memories indexed, or throws on error.
-  static Future<int> importChat(File chatFile) async {
+  // Takes bytes + filename — works on web AND mobile (no dart:io needed)
+  static Future<int> importChat(Uint8List fileBytes, String fileName) async {
     final request = http.MultipartRequest(
       'POST',
       Uri.parse('$_baseUrl/import'),
     );
     request.files.add(
-      await http.MultipartFile.fromPath('chat_file', chatFile.path),
+      http.MultipartFile.fromBytes(
+        'chat_file',
+        fileBytes,
+        filename: fileName,
+      ),
     );
 
     final streamed = await request.send().timeout(_timeout);
@@ -50,10 +50,11 @@ class ApiService {
 
     if (resp.statusCode == 200) {
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
-      return (data['indexed'] as num?)?.toInt() ?? 0;
+      return (data['message_count'] as num?)?.toInt() ??
+             (data['indexed'] as num?)?.toInt() ?? 0;
     }
     final err = _parseError(resp.body);
-    throw HttpException('Import failed: $err');
+    throw Exception('Import failed: $err');
   }
 
   // ── Text Query ──────────────────────────────────────────────────────
@@ -75,19 +76,26 @@ class ApiService {
         memoriesSample: _parseMemories(data['memories_sample']),
       );
     }
-    throw HttpException('Server error ${resp.statusCode}: ${_parseError(resp.body)}');
+    throw Exception('Server error ${resp.statusCode}: ${_parseError(resp.body)}');
   }
 
   // ── Voice Query ─────────────────────────────────────────────────────
-  /// [audioFile] must be a 16 kHz mono WAV file.
-  /// [lang] is the Vosk language code: 'hi', 'en-in'.
-  static Future<VoiceResponse> voiceQuery(File audioFile, {String lang = 'hi'}) async {
+  // Takes bytes + filename — works on web AND mobile (no dart:io needed)
+  static Future<VoiceResponse> voiceQuery(
+    Uint8List audioBytes,
+    String fileName, {
+    String lang = 'hi',
+  }) async {
     final request = http.MultipartRequest(
       'POST',
       Uri.parse('$_baseUrl/voice_query'),
     );
     request.files.add(
-      await http.MultipartFile.fromPath('audio', audioFile.path),
+      http.MultipartFile.fromBytes(
+        'audio',
+        audioBytes,
+        filename: fileName,
+      ),
     );
     request.fields['lang'] = lang;
 
@@ -106,7 +114,7 @@ class ApiService {
         memoriesSample: _parseMemories(data['memories_sample']),
       );
     }
-    throw HttpException('Server error ${resp.statusCode}: ${_parseError(resp.body)}');
+    throw Exception('Server error ${resp.statusCode}: ${_parseError(resp.body)}');
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────
@@ -144,7 +152,6 @@ class HealthStatus {
     this.memoriesIndexed = false,
   });
 
-  /// True when backend is fully ready for AI responses.
   bool get isReady => isOnline && llmLoaded;
 }
 

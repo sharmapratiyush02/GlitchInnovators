@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -62,40 +61,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   // ── Real WhatsApp import via file picker + API ──────────────────────
   Future<void> _pickAndImport() async {
-    setState(() {
-      _importing    = true;
-      _importError  = '';
-    });
-
+    setState(() { _importing = true; _importError = ''; });
     try {
-      // 1. Let user pick _chat.txt
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['txt'],
+        withData: true,
         dialogTitle: 'Select your WhatsApp _chat.txt',
       );
-
-      if (result == null || result.files.single.path == null) {
-        // User cancelled
+      if (result == null || result.files.isEmpty) {
         setState(() => _importing = false);
         return;
       }
-
-      final file = File(result.files.single.path!);
-
-      // 2. Upload to backend
-      final count = await ApiService.importChat(file);
-
-      setState(() {
-        _importing     = false;
-        _imported      = true;
-        _memoriesCount = count;
-      });
+      final f = result.files.first;
+      final bytes = f.bytes;
+      if (bytes == null || bytes.isEmpty) {
+        setState(() { _importing = false; _importError = 'Could not read file. Please try again.'; });
+        return;
+      }
+      final count = await ApiService.importChat(bytes, f.name);
+      setState(() { _importing = false; _imported = true; _memoriesCount = count; });
     } catch (e) {
-      setState(() {
-        _importing   = false;
-        _importError = e.toString().replaceFirst('Exception: ', '');
-      });
+      setState(() { _importing = false; _importError = e.toString().replaceFirst('Exception: ', ''); });
     }
   }
 
