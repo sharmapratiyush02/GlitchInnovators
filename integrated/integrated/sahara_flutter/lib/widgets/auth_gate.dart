@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/app_state.dart';
 import '../services/biometric_service.dart';
-import 'lock_screen.dart';
+import '../screens/lock_screen.dart';
 
 class AuthGate extends StatefulWidget {
   final Widget child;
