@@ -1,0 +1,22 @@
+**/LOG
+**/LOG.old
+**/*.log
+**/History
+**/History-journal
+**/Web Data
+**/Top Sites
+**/Shortcuts
+**/Preferences
+**/Secure Preferences
+**/TransportSecurity
+**/Network Action Predictor
+**/Network Persistent State
+**/QuotaManager
+**/passkey_enclave_state
+**/BrowsingTopicsState
+**/Session_*
+**/DIPS-wal
+**/*.tmp
+**/the-real-index
+**/NOTICES
+**/DIPS
