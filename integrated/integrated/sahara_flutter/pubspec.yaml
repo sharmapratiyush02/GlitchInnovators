@@ -1,0 +1,57 @@
+name: sahara
+description: A grief and loneliness companion app with on-device AI memory recall.
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  provider: ^6.1.1
+
+  # HTTP
+  http: ^1.1.0
+
+  # Local auth / biometrics
+  local_auth: ^2.1.8
+  flutter_secure_storage: ^9.0.0
+
+  # File picking (WhatsApp import)
+  file_picker: ^6.1.1
+
+  # Audio recording (voice queries)
+  record: ^5.0.4
+  audioplayers: ^5.2.1
+  permission_handler: ^11.1.0
+
+  # Charts
+  fl_chart: ^0.66.2
+
+  # Shared preferences
+  shared_preferences: ^2.2.2
+
+  # Google Fonts
+  google_fonts: ^6.1.0
+
+  # Lottie animations
+  lottie: ^3.0.0
+
+  # Intl for date formatting
+  intl: ^0.18.1
+
+  # Path provider (for temp audio files)
+  path_provider: ^2.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/animations/
