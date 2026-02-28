@@ -1,0 +1,7 @@
+sentence-transformers
+chromadb
+numpy
+llama-cpp-python
+flask
+vosk
+librosa
