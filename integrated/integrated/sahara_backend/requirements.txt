@@ -1,0 +1,8 @@
+flask>=3.0.0
+flask-cors>=4.0.0
+sentence-transformers>=2.7.0
+chromadb>=0.5.0
+numpy>=1.24.0
+llama-cpp-python>=0.2.77
+vosk>=0.3.45
+librosa>=0.10.0

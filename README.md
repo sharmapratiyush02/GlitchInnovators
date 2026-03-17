@@ -490,15 +490,3 @@ These numbers are embedded in the app and always visible when crisis keywords ar
 py -3.11 -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
-```
-
----
-
-## ⚠️ Disclaimer
-
-Sahara is a first-level emotional support tool. It does not provide medical diagnosis and does not replace professional mental health care or therapy. If you are in crisis, please contact one of the helplines listed above immediately.
-
----
-
-*Team Sahara · March 2026 · Private & Confidential*
-*🌿 Sahara · 🌌 Aasman (आसमान) · 🪑 Baithak (बैठक)*

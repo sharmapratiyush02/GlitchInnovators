@@ -1,0 +1,1766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sahara — Private AI Grief Companion</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@300;400&family=Sora:wght@200;300;400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sand: #F5E6CC; --sand2: #EDD9B8; --sand3: #E8C99A;
+  --ember: #B5652A; --ember2: #D4956A; --ember3: #8B3A12;
+  --dark: #3D1F0A; --mid: #8B6E4E; --dim: #C4A882;
+  --white: #FDFAF5; --cream: #FAF3E8;
+  --safe: #4A7C59; --safebg: #D6E8D0;
+  --danger: #C0392B; --dangerbg: #FFEDE8;
+  --sky: #4A6FA5; --skybg: #E8EEF8;
+  --border: rgba(181,101,42,0.18);
+  --shadow: 0 4px 24px rgba(61,31,10,0.1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{font-family:'Sora',sans-serif;background:var(--sand);color:var(--dark);min-height:100vh;overflow-x:hidden;}
+
+/* ── LOCK SCREEN ── */
+#lock-screen{
+  position:fixed;inset:0;z-index:9999;
+  background:linear-gradient(145deg,#1a0e05 0%,#2d1508 50%,#1a0e05 100%);
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity 0.7s ease,transform 0.7s ease;
+}
+#lock-screen.out{opacity:0;transform:scale(1.04);pointer-events:none;}
+.lock-wrap{text-align:center;color:#F5E6CC;}
+.lock-leaf{font-size:2.5rem;margin-bottom:0.5rem;animation:leafFloat 3s ease-in-out infinite;}
+.lock-logo{font-family:'Cormorant Garamond',serif;font-size:3.2rem;font-weight:300;letter-spacing:0.12em;color:#E8C99A;margin-bottom:0.3rem;}
+.lock-sub{font-size:0.7rem;letter-spacing:0.35em;text-transform:uppercase;color:#8B6E4E;margin-bottom:2.5rem;}
+.face-ring-wrap{position:relative;width:200px;height:200px;margin:0 auto 1.5rem;}
+.face-ring-svg{position:absolute;inset:0;width:100%;height:100%;animation:spin 10s linear infinite;}
+.face-inner{position:absolute;inset:16px;border-radius:50%;overflow:hidden;background:#1a0e05;border:1px solid rgba(196,168,130,0.2);}
+#lockVideo{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:0;transition:opacity 0.5s;}
+#lockVideo.show{opacity:1;}
+#lockCanvas{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;transform:scaleX(-1);}
+.face-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:3rem;color:#8B6E4E;}
+.lock-status{font-size:0.85rem;color:#C4A882;margin-bottom:0.6rem;min-height:1.4em;letter-spacing:0.03em;}
+.lock-status.ok{color:#6db88a;}
+.lock-status.err{color:#e07a5f;}
+.scan-track{width:200px;height:2px;background:rgba(255,255,255,0.08);border-radius:2px;margin:0 auto 1.5rem;overflow:hidden;}
+.scan-fill{width:0%;height:100%;background:linear-gradient(90deg,#8B6E4E,#E8C99A);border-radius:2px;transition:width 0.2s;}
+.lock-btn{display:inline-flex;align-items:center;gap:0.5rem;background:rgba(181,101,42,0.2);border:1px solid rgba(181,101,42,0.5);color:#E8C99A;font-family:'Sora',sans-serif;font-size:0.8rem;letter-spacing:0.15em;text-transform:uppercase;padding:0.8rem 2rem;border-radius:6px;cursor:pointer;transition:all 0.25s;margin-bottom:0.8rem;}
+.lock-btn:hover{background:rgba(181,101,42,0.35);box-shadow:0 0 20px rgba(181,101,42,0.3);}
+.lock-or{font-size:0.7rem;color:#8B6E4E;letter-spacing:0.2em;margin:0.4rem 0;}
+.pin-btn{background:none;border:1px solid rgba(255,255,255,0.1);color:#8B6E4E;font-family:'Sora',sans-serif;font-size:0.75rem;padding:0.5rem 1.4rem;border-radius:4px;cursor:pointer;transition:all 0.2s;}
+.pin-btn:hover{border-color:rgba(255,255,255,0.25);color:#C4A882;}
+
+/* PIN MODAL */
+.modal-bg{display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);align-items:center;justify-content:center;}
+.modal-bg.show{display:flex;}
+.modal-box{background:var(--cream);border-radius:16px;padding:2rem;width:320px;box-shadow:var(--shadow);animation:popIn 0.25s ease;}
+.modal-box h3{font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:400;color:var(--dark);margin-bottom:0.4rem;}
+.modal-box p{font-size:0.82rem;color:var(--mid);margin-bottom:1.2rem;}
+.pin-field{width:100%;background:var(--sand);border:1.5px solid var(--border);border-radius:8px;padding:0.8rem;color:var(--dark);font-family:'DM Mono',monospace;font-size:1.8rem;letter-spacing:0.5em;text-align:center;outline:none;margin-bottom:0.6rem;transition:border-color 0.2s;}
+.pin-field:focus{border-color:var(--ember);}
+.pin-err{font-size:0.75rem;color:var(--danger);min-height:1em;margin-bottom:0.8rem;}
+.modal-btns{display:flex;gap:0.7rem;}
+.btn-ember{flex:1;background:var(--ember);border:none;color:#fff;font-family:'Sora',sans-serif;font-size:0.85rem;font-weight:600;padding:0.75rem;border-radius:8px;cursor:pointer;transition:all 0.2s;}
+.btn-ember:hover{background:var(--ember3);}
+.btn-ghost{background:none;border:1.5px solid var(--border);color:var(--mid);font-family:'Sora',sans-serif;font-size:0.82rem;padding:0.7rem 1.2rem;border-radius:8px;cursor:pointer;transition:all 0.2s;}
+.btn-ghost:hover{border-color:var(--ember);color:var(--ember);}
+
+/* ── APP SHELL ── */
+#app{display:flex;min-height:100vh;opacity:0;transition:opacity 0.5s;}
+#app.show{opacity:1;}
+
+/* SIDEBAR */
+.sidebar{width:260px;flex-shrink:0;background:var(--white);border-right:1.5px solid var(--border);display:flex;flex-direction:column;padding:1.8rem 1.4rem;position:sticky;top:0;height:100vh;overflow-y:auto;}
+.sb-logo{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:400;color:var(--ember);letter-spacing:0.08em;}
+.sb-sub{font-size:0.62rem;letter-spacing:0.28em;text-transform:uppercase;color:var(--dim);margin-bottom:2rem;font-weight:300;}
+.sb-section{font-size:0.6rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--dim);margin:1.2rem 0 0.5rem;font-weight:300;}
+.nav-item{display:flex;align-items:center;gap:0.7rem;padding:0.6rem 0.8rem;border-radius:8px;cursor:pointer;font-size:0.82rem;font-weight:300;color:var(--mid);transition:all 0.18s;margin-bottom:0.1rem;border:none;background:none;width:100%;text-align:left;}
+.nav-item:hover{background:var(--sand);color:var(--dark);}
+.nav-item.active{background:rgba(181,101,42,0.1);color:var(--ember);font-weight:400;border-left:2.5px solid var(--ember);margin-left:-2px;padding-left:1rem;}
+.nav-icon{font-size:1rem;width:20px;text-align:center;}
+.sb-memory-count{margin-top:auto;padding:0.8rem;background:var(--sand);border-radius:8px;text-align:center;}
+.sb-mc-num{font-family:'Cormorant Garamond',serif;font-size:1.8rem;color:var(--ember);}
+.sb-mc-label{font-size:0.65rem;color:var(--mid);text-transform:uppercase;letter-spacing:0.15em;}
+.sb-status{margin-top:0.7rem;text-align:center;}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--safe);display:inline-block;margin-right:4px;box-shadow:0 0 6px var(--safe);animation:pulse 2s infinite;}
+.status-txt{font-size:0.68rem;color:var(--mid);}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.8rem;background:var(--white);border-bottom:1.5px solid var(--border);position:sticky;top:0;z-index:50;}
+.topbar-title{font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:400;color:var(--dark);}
+.topbar-right{display:flex;align-items:center;gap:0.8rem;}
+.badge{font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--ember);background:rgba(181,101,42,0.1);border:1px solid rgba(181,101,42,0.25);padding:0.25rem 0.7rem;border-radius:20px;}
+.lock-app-btn{background:none;border:1.5px solid var(--border);color:var(--mid);font-family:'Sora',sans-serif;font-size:0.72rem;padding:0.35rem 0.9rem;border-radius:20px;cursor:pointer;transition:all 0.2s;}
+.lock-app-btn:hover{border-color:var(--ember);color:var(--ember);}
+
+/* PANELS */
+.panel{display:none;flex:1;overflow-y:auto;}
+.panel.active{display:flex;flex-direction:column;}
+.panel-pad{padding:1.8rem;}
+.ph{margin-bottom:1.5rem;}
+.ph h2{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:300;color:var(--dark);margin-bottom:0.2rem;}
+.ph p{font-size:0.8rem;color:var(--mid);font-weight:300;}
+
+/* ── CHAT ── */
+#panel-chat{flex-direction:column;}
+.chat-area{flex:1;overflow-y:auto;padding:1.5rem 1.8rem;display:flex;flex-direction:column;gap:1rem;}
+.chat-area::-webkit-scrollbar{width:3px;}
+.chat-area::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.msg{display:flex;gap:0.7rem;animation:fadeUp 0.3s ease;max-width:78%;}
+.msg.user{align-self:flex-end;flex-direction:row-reverse;}
+.avatar{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.9rem;font-weight:600;}
+.avatar.ai{background:var(--ember);color:#fff;}
+.avatar.user{background:rgba(181,101,42,0.15);color:var(--ember);border:1.5px solid rgba(181,101,42,0.3);}
+.bubble{padding:0.85rem 1.1rem;border-radius:12px;font-size:0.85rem;font-weight:300;line-height:1.65;white-space:pre-wrap;}
+.bubble.ai{background:var(--sand2);color:var(--dark);border-radius:4px 12px 12px 12px;}
+.bubble.user{background:var(--ember);color:#fff;border-radius:12px 4px 12px 12px;}
+.bubble.crisis{background:#fff0ed;border:1.5px solid rgba(192,57,43,0.3);color:var(--danger);}
+.msg-meta{font-size:0.62rem;color:var(--dim);margin-top:0.3rem;}
+.typing-dots{display:flex;gap:4px;align-items:center;padding:0.85rem 1.1rem;background:var(--sand2);border-radius:4px 12px 12px 12px;}
+.dot{width:5px;height:5px;background:var(--ember2);border-radius:50%;animation:bounce 1.2s infinite;}
+.dot:nth-child(2){animation-delay:.2s;}
+.dot:nth-child(3){animation-delay:.4s;}
+/* crisis banner */
+.crisis-bar{display:none;margin:0 1.8rem 0.8rem;background:#fff0ed;border:1.5px solid rgba(192,57,43,0.3);border-radius:10px;padding:0.9rem 1.1rem;font-size:0.8rem;color:var(--danger);line-height:1.5;}
+.crisis-bar.show{display:flex;gap:0.6rem;align-items:flex-start;}
+/* input */
+.chat-bottom{padding:1rem 1.8rem;background:var(--white);border-top:1.5px solid var(--border);}
+#waveCanvas{width:100%;height:44px;margin-bottom:0.6rem;opacity:0;transition:opacity 0.3s;border-radius:8px;background:var(--sand);}
+#waveCanvas.show{opacity:1;}
+.input-row{display:flex;gap:0.7rem;align-items:flex-end;background:var(--sand);border:1.5px solid var(--border);border-radius:12px;padding:0.65rem 1rem;transition:border-color 0.2s;}
+.input-row:focus-within{border-color:var(--ember);}
+#chatInput{flex:1;background:none;border:none;outline:none;color:var(--dark);font-family:'Sora',sans-serif;font-size:0.85rem;font-weight:300;resize:none;line-height:1.5;max-height:120px;min-height:24px;}
+#chatInput::placeholder{color:var(--dim);}
+.ib{background:none;border:none;cursor:pointer;color:var(--mid);font-size:1.1rem;padding:0.15rem;transition:all 0.2s;flex-shrink:0;}
+.ib:hover{color:var(--ember);transform:scale(1.1);}
+.ib.rec{color:#C0392B;animation:pulse 1s infinite;}
+.chat-hint{font-size:0.63rem;color:var(--dim);margin-top:0.45rem;text-align:center;}
+.chat-disclaimer{padding:0.7rem 1.8rem;background:var(--sand);font-size:0.65rem;color:var(--mid);text-align:center;border-top:1px solid var(--border);}
+
+/* ── UPLOAD ── */
+.upload-zone{border:2px dashed var(--border);border-radius:14px;padding:2.5rem;text-align:center;cursor:pointer;transition:all 0.25s;background:rgba(255,255,255,0.5);margin-bottom:1.2rem;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--ember);background:rgba(181,101,42,0.04);}
+.uz-icon{font-size:2.5rem;color:var(--ember2);margin-bottom:0.6rem;}
+.uz-label{font-size:0.92rem;color:var(--mid);margin-bottom:0.25rem;font-weight:400;}
+.uz-hint{font-size:0.75rem;color:var(--dim);}
+.file-chip{display:none;align-items:center;gap:0.8rem;background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:1rem;margin-bottom:1rem;}
+.file-chip.show{display:flex;}
+.fc-name{font-size:0.85rem;color:var(--dark);}
+.fc-size{font-size:0.7rem;color:var(--dim);font-family:'DM Mono',monospace;}
+.proc-btn{width:100%;background:var(--ember);border:none;color:#fff;font-family:'Sora',sans-serif;font-size:0.9rem;font-weight:600;padding:0.9rem;border-radius:10px;cursor:pointer;transition:all 0.2s;display:none;align-items:center;justify-content:center;gap:0.5rem;}
+.proc-btn.show{display:flex;}
+.proc-btn:hover{background:var(--ember3);box-shadow:0 4px 16px rgba(181,101,42,0.3);}
+.prog-wrap{display:none;margin-top:1.2rem;}
+.prog-wrap.show{display:block;}
+.prog-top{display:flex;justify-content:space-between;font-size:0.72rem;color:var(--mid);margin-bottom:0.4rem;}
+.prog-track{height:5px;background:var(--sand3);border-radius:3px;overflow:hidden;margin-bottom:0.8rem;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--ember2),var(--ember));border-radius:3px;transition:width 0.3s ease;}
+.step{display:flex;align-items:center;gap:0.5rem;font-size:0.78rem;color:var(--dim);margin-bottom:0.35rem;transition:color 0.2s;}
+.step.active{color:var(--ember);}
+.step.done{color:var(--safe);}
+.step-ic{width:18px;font-size:0.75rem;}
+.howto{background:var(--sand2);border-radius:10px;padding:1rem 1.2rem;margin-bottom:1.2rem;}
+.howto strong{font-size:0.8rem;color:var(--dark);}
+.howto span{font-size:0.75rem;color:var(--mid);font-family:'DM Mono',monospace;display:block;margin-top:0.3rem;}
+
+/* ── MEMORIES ── */
+.mem-search{display:flex;align-items:center;gap:0.7rem;background:var(--white);border:1.5px solid var(--border);border-radius:8px;padding:0.65rem 1rem;margin-bottom:1.2rem;}
+.mem-search input{flex:1;background:none;border:none;outline:none;color:var(--dark);font-family:'Sora',sans-serif;font-size:0.83rem;}
+.mem-search input::placeholder{color:var(--dim);}
+.mem-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:0.9rem;}
+.mem-card{background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:1.1rem;cursor:pointer;transition:all 0.2s;border-left:3px solid var(--ember2);animation:fadeUp 0.4s ease both;}
+.mem-card:hover{transform:translateY(-2px);box-shadow:var(--shadow);}
+.mc-date{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--ember);margin-bottom:0.3rem;}
+.mc-sender{font-size:0.68rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.4rem;}
+.mc-text{font-size:0.82rem;font-weight:300;color:var(--dark);line-height:1.6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+.mc-score{display:flex;align-items:center;gap:0.4rem;margin-top:0.6rem;font-size:0.62rem;color:var(--dim);}
+.sc-bar{flex:1;height:2px;background:var(--sand3);border-radius:1px;overflow:hidden;}
+.sc-fill{height:100%;background:linear-gradient(90deg,var(--ember2),var(--ember));}
+.empty-state{grid-column:1/-1;text-align:center;padding:3rem;color:var(--dim);font-size:0.85rem;}
+
+/* ── VOICE ── */
+#panel-voice{align-items:center;justify-content:center;}
+.voice-center{text-align:center;max-width:380px;width:100%;}
+.v-orb{position:relative;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle at 35% 35%,rgba(181,101,42,0.25),rgba(181,101,42,0.06));border:1.5px solid rgba(181,101,42,0.3);margin:0 auto 1.2rem;display:flex;align-items:center;justify-content:center;font-size:3rem;cursor:pointer;transition:all 0.3s;}
+.v-orb:hover{transform:scale(1.05);box-shadow:0 0 30px rgba(181,101,42,0.2);}
+.v-orb.rec{animation:vPulse 1.5s infinite;border-color:rgba(192,57,43,0.6);background:radial-gradient(circle at 35% 35%,rgba(192,57,43,0.2),rgba(192,57,43,0.05));}
+.v-ring{position:absolute;inset:-14px;border-radius:50%;border:1px solid rgba(181,101,42,0.15);animation:ringOut 2s ease-in-out infinite;}
+.v-ring:nth-child(2){inset:-26px;animation-delay:0.5s;opacity:0.5;}
+.v-title{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:300;margin-bottom:0.3rem;}
+.v-status{font-size:0.8rem;color:var(--mid);margin-bottom:1.5rem;min-height:1.2em;}
+.v-transcript{background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:1.1rem;font-size:0.85rem;color:var(--mid);font-style:italic;font-weight:300;line-height:1.6;margin-bottom:1.2rem;min-height:70px;text-align:left;display:none;}
+.v-transcript.show{display:block;}
+.lang-row{display:flex;gap:0.5rem;justify-content:center;margin-top:1.2rem;}
+.lang-btn{background:var(--white);border:1.5px solid var(--border);color:var(--mid);font-family:'Sora',sans-serif;font-size:0.72rem;letter-spacing:0.08em;padding:0.35rem 1rem;border-radius:20px;cursor:pointer;transition:all 0.2s;}
+.lang-btn.active{border-color:var(--ember);color:var(--ember);background:rgba(181,101,42,0.07);}
+.v-wave{width:100%;height:44px;margin-bottom:1rem;border-radius:8px;background:var(--sand);opacity:0;transition:opacity 0.3s;}
+.v-wave.show{opacity:1;}
+
+/* ── AASMAN ── */
+#panel-aasman{flex-direction:column;background:linear-gradient(160deg,#0a0a18,#0f1526,#0a0a18);}
+.sky-header{padding:1.5rem 1.8rem 0.8rem;background:transparent;}
+.sky-header h2{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:300;color:#C8D8F0;margin-bottom:0.2rem;}
+.sky-header p{font-size:0.78rem;color:#5a7aa0;}
+.sky-tabs{display:flex;gap:0;padding:0 1.8rem;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:1rem;}
+.sky-tab{background:none;border:none;border-bottom:2px solid transparent;color:#5a7aa0;font-family:'Sora',sans-serif;font-size:0.78rem;padding:0.6rem 1rem;cursor:pointer;transition:all 0.2s;margin-bottom:-1px;}
+.sky-tab.active{color:#8BADD4;border-bottom-color:#4A6FA5;}
+/* star canvas */
+#starCanvas{display:block;flex:1;cursor:crosshair;}
+/* diyas */
+.diya-panel{padding:1.2rem 1.8rem;flex:1;overflow-y:auto;}
+.diya-grid{display:flex;flex-wrap:wrap;gap:0.7rem;margin-top:0.8rem;}
+.diya-item{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:0.7rem 1rem;display:flex;align-items:center;gap:0.6rem;font-size:0.8rem;color:#8BADD4;animation:fadeUp 0.4s ease both;}
+.diya-flame{font-size:1.2rem;}
+/* whispers */
+.whisper-panel{padding:1.2rem 1.8rem;flex:1;overflow-y:auto;}
+.whisper-item{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:0.9rem 1.1rem;margin-bottom:0.7rem;font-size:0.82rem;color:#8badd4;font-style:italic;line-height:1.6;animation:fadeUp 0.4s ease both;}
+.whisper-input-wrap{padding:1rem 1.8rem;background:rgba(0,0,0,0.3);border-top:1px solid rgba(255,255,255,0.07);}
+.whisper-row{display:flex;gap:0.7rem;align-items:center;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:0.6rem 1rem;}
+.whisper-row input{flex:1;background:none;border:none;outline:none;color:#C8D8F0;font-family:'Sora',sans-serif;font-size:0.82rem;}
+.whisper-row input::placeholder{color:#3d5070;}
+/* breathing */
+.breath-panel{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1rem;}
+.breath-orb{width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(74,111,165,0.4),rgba(74,111,165,0.1));border:1.5px solid rgba(74,111,165,0.4);display:flex;align-items:center;justify-content:center;font-size:0.8rem;color:#8BADD4;cursor:pointer;transition:all 0.3s;}
+.breath-orb.breathing{animation:breathCycle 16s ease-in-out infinite;}
+.breath-label{font-size:0.8rem;color:#5a7aa0;letter-spacing:0.1em;}
+
+/* ── BAITHAK ── */
+.baithak-wrap{padding:1.5rem 1.8rem;flex:1;overflow-y:auto;}
+.bk-tabs{display:flex;gap:0.5rem;margin-bottom:1.2rem;background:var(--sand);border-radius:8px;padding:0.3rem;}
+.bk-tab{flex:1;background:none;border:none;color:var(--mid);font-family:'Sora',sans-serif;font-size:0.78rem;padding:0.5rem;border-radius:6px;cursor:pointer;transition:all 0.2s;}
+.bk-tab.active{background:var(--white);color:var(--ember);font-weight:500;box-shadow:var(--shadow);}
+.thread{background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:1.1rem;margin-bottom:0.8rem;cursor:pointer;transition:all 0.2s;animation:fadeUp 0.4s ease both;}
+.thread:hover{transform:translateY(-1px);box-shadow:var(--shadow);}
+.thread-top{display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;}
+.thread-symbol{font-size:1.3rem;}
+.thread-cat{font-size:0.65rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.12em;border:1px solid var(--border);border-radius:20px;padding:0.1rem 0.5rem;}
+.urgency{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-left:auto;}
+.urgency.high{background:#C0392B;box-shadow:0 0 6px #C0392B;}
+.urgency.med{background:#E67E22;box-shadow:0 0 6px #E67E22;}
+.urgency.low{background:var(--safe);box-shadow:0 0 6px var(--safe);}
+.thread-text{font-size:0.83rem;color:var(--dark);font-weight:300;line-height:1.6;margin-bottom:0.5rem;}
+.thread-meta{font-size:0.68rem;color:var(--dim);}
+.reply-btn{background:rgba(181,101,42,0.08);border:1px solid rgba(181,101,42,0.2);color:var(--ember);font-size:0.72rem;padding:0.3rem 0.8rem;border-radius:20px;cursor:pointer;transition:all 0.2s;font-family:'Sora',sans-serif;margin-top:0.4rem;}
+.reply-btn:hover{background:rgba(181,101,42,0.15);}
+.new-post-area{background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:1.2rem;margin-bottom:1rem;}
+.new-post-area textarea{width:100%;background:var(--sand);border:1px solid var(--border);border-radius:8px;padding:0.8rem;color:var(--dark);font-family:'Sora',sans-serif;font-size:0.83rem;resize:none;outline:none;line-height:1.5;margin-bottom:0.7rem;}
+.post-symbol{display:flex;align-items:center;gap:0.5rem;font-size:1.2rem;margin-bottom:0.6rem;cursor:pointer;}
+.post-symbol span{font-size:0.75rem;color:var(--dim);}
+
+/* ── ANALYTICS ── */
+.metrics{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.8rem;margin-bottom:1.5rem;}
+.metric-c{background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:1.1rem;text-align:center;transition:transform 0.2s;}
+.metric-c:hover{transform:translateY(-2px);}
+.metric-val{font-family:'Cormorant Garamond',serif;font-size:2.4rem;font-weight:300;color:var(--ember);line-height:1;}
+.metric-lbl{font-size:0.68rem;color:var(--mid);text-transform:uppercase;letter-spacing:0.12em;margin-top:0.2rem;}
+.chart-card{background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:1.3rem;margin-bottom:1rem;}
+.chart-title{font-size:0.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.15em;margin-bottom:1rem;}
+.bars{display:flex;align-items:flex-end;gap:6px;height:90px;}
+.bar{flex:1;border-radius:3px 3px 0 0;background:linear-gradient(180deg,var(--ember),rgba(181,101,42,0.3));transition:height 0.6s ease;cursor:pointer;position:relative;min-height:4px;}
+.bar:hover::after{content:attr(data-v);position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:0.62rem;color:var(--dark);font-family:'DM Mono',monospace;white-space:nowrap;}
+.bar-lbls{display:flex;gap:6px;margin-top:4px;}
+.bar-lbl{flex:1;text-align:center;font-size:0.6rem;color:var(--dim);font-family:'DM Mono',monospace;}
+
+/* ── SETTINGS ── */
+.settings-s{background:var(--white);border:1.5px solid var(--border);border-radius:10px;margin-bottom:0.9rem;overflow:hidden;}
+.ss-title{padding:0.9rem 1.2rem;font-size:0.67rem;font-weight:500;text-transform:uppercase;letter-spacing:0.2em;color:var(--dim);border-bottom:1px solid var(--border);background:var(--sand);}
+.sr{display:flex;align-items:center;justify-content:space-between;padding:0.9rem 1.2rem;border-bottom:1px solid var(--border);transition:background 0.15s;}
+.sr:last-child{border-bottom:none;}
+.sr:hover{background:var(--sand);}
+.sr-info{}
+.sr-name{font-size:0.84rem;color:var(--dark);margin-bottom:0.12rem;}
+.sr-desc{font-size:0.7rem;color:var(--dim);}
+.toggle{width:42px;height:23px;background:var(--sand3);border-radius:12px;position:relative;cursor:pointer;transition:background 0.25s;border:none;flex-shrink:0;}
+.toggle::after{content:'';position:absolute;width:17px;height:17px;border-radius:50%;background:#fff;top:3px;left:3px;transition:all 0.25s;box-shadow:0 1px 3px rgba(0,0,0,0.2);}
+.toggle.on{background:var(--ember);}
+.toggle.on::after{left:22px;}
+.sr-tag{font-size:0.68rem;font-family:'DM Mono',monospace;padding:0.2rem 0.6rem;border-radius:4px;}
+.tag-ok{background:var(--safebg);color:var(--safe);}
+.tag-warn{background:rgba(181,101,42,0.1);color:var(--ember);}
+
+/* HELPLINES */
+.helplines{background:#fff0ed;border:1.5px solid rgba(192,57,43,0.2);border-radius:10px;padding:1.1rem;margin-bottom:0.9rem;}
+.hl-title{font-size:0.75rem;font-weight:600;color:var(--danger);margin-bottom:0.6rem;text-transform:uppercase;letter-spacing:0.1em;}
+.hl-row{display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0;border-bottom:1px solid rgba(192,57,43,0.1);}
+.hl-row:last-child{border-bottom:none;}
+.hl-name{font-size:0.82rem;color:var(--dark);}
+.hl-num{font-family:'DM Mono',monospace;font-size:0.82rem;font-weight:600;color:var(--ember);}
+
+/* ANIMATIONS */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+@keyframes popIn{from{opacity:0;transform:scale(0.94);}to{opacity:1;transform:scale(1);}}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+@keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
+@keyframes leafFloat{0%,100%{transform:translateY(0) rotate(-5deg);}50%{transform:translateY(-8px) rotate(5deg);}}
+@keyframes vPulse{0%,100%{box-shadow:0 0 15px rgba(192,57,43,0.3);}50%{box-shadow:0 0 35px rgba(192,57,43,0.5);}}
+@keyframes ringOut{0%{transform:scale(1);opacity:0.4;}100%{transform:scale(1.2);opacity:0;}}
+@keyframes breathCycle{
+  0%{transform:scale(1);}
+  25%{transform:scale(1.4);}
+  57%{transform:scale(1.4);}
+  82%{transform:scale(1);}
+  100%{transform:scale(1);}
+}
+@keyframes starPulse{0%,100%{opacity:0.6;}50%{opacity:1;}}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .sidebar{width:210px;padding:1.2rem 1rem;}
+  .chat-area{padding:1rem;}
+}
+@media(max-width:580px){
+  #app{flex-direction:column;}
+  .sidebar{width:100%;height:auto;flex-direction:row;overflow-x:auto;padding:0.8rem;border-right:none;border-bottom:1.5px solid var(--border);}
+  .sb-logo,.sb-sub,.sb-section,.sb-memory-count,.sb-status{display:none;}
+  .nav-item{flex-direction:column;gap:0.2rem;font-size:0.6rem;padding:0.5rem;min-width:55px;text-align:center;border-left:none!important;margin-left:0!important;padding-left:0!important;}
+  .nav-item.active{background:rgba(181,101,42,0.1);border-bottom:2px solid var(--ember);}
+  .nav-icon{font-size:1.2rem;width:auto;}
+  .panel{height:calc(100vh - 120px);}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LOCK SCREEN ══ -->
+<div id="lock-screen">
+  <div class="lock-wrap">
+    <div class="lock-leaf">🌿</div>
+    <div class="lock-logo">Sahara</div>
+    <div class="lock-sub">Private · On-Device · AI Grief Companion</div>
+    <div class="face-ring-wrap">
+      <svg class="face-ring-svg" viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="95" fill="none" stroke="rgba(196,168,130,0.07)" stroke-width="1"/>
+        <circle cx="100" cy="100" r="95" fill="none" stroke="rgba(196,168,130,0.45)" stroke-width="1.5" stroke-dasharray="10 7" stroke-linecap="round"/>
+        <circle cx="100" cy="5" r="2.5" fill="rgba(196,168,130,0.7)"/>
+      </svg>
+      <div class="face-inner">
+        <div class="face-placeholder" id="facePh">👤</div>
+        <video id="lockVideo" autoplay muted playsinline></video>
+        <canvas id="lockCanvas"></canvas>
+      </div>
+    </div>
+    <div class="lock-status" id="lockStatus">Tap to activate face unlock</div>
+    <div class="scan-track"><div class="scan-fill" id="scanFill"></div></div>
+    <button class="lock-btn" id="btnFace">🔍 Activate Face Unlock</button>
+    <div class="lock-or">— or —</div>
+    <button class="pin-btn" id="btnPin">Enter with PIN</button>
+  </div>
+</div>
+
+<!-- PIN MODAL -->
+<div class="modal-bg" id="pinModal">
+  <div class="modal-box">
+    <h3>Enter PIN</h3>
+    <p>Your 4-digit PIN to access Sahara.</p>
+    <input type="password" class="pin-field" id="pinInput" maxlength="4" inputmode="numeric" placeholder="••••">
+    <div class="pin-err" id="pinErr"></div>
+    <div class="modal-btns">
+      <button class="btn-ember" id="btnPinOk">Unlock</button>
+      <button class="btn-ghost" id="btnPinCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-logo">Sahara</div>
+    <div class="sb-sub">Memory Companion</div>
+    <div class="sb-section">Core</div>
+    <button class="nav-item active" data-tab="chat"><span class="nav-icon">💬</span>Chat</button>
+    <button class="nav-item" data-tab="voice"><span class="nav-icon">🎙️</span>Voice</button>
+    <button class="nav-item" data-tab="memories"><span class="nav-icon">🌸</span>Memories</button>
+    <button class="nav-item" data-tab="upload"><span class="nav-icon">📂</span>Upload Chat</button>
+    <div class="sb-section">Community</div>
+    <button class="nav-item" data-tab="aasman"><span class="nav-icon">🌌</span>Aasman</button>
+    <button class="nav-item" data-tab="baithak"><span class="nav-icon">🪑</span>Baithak</button>
+    <div class="sb-section">More</div>
+    <button class="nav-item" data-tab="analytics"><span class="nav-icon">📊</span>Insights</button>
+    <button class="nav-item" data-tab="settings"><span class="nav-icon">⚙️</span>Settings</button>
+    <div class="sb-memory-count">
+      <div class="sb-mc-num" id="sbCount">0</div>
+      <div class="sb-mc-label">Memories</div>
+    </div>
+    <div class="sb-status">
+      <span class="status-dot"></span>
+      <span class="status-txt">On-device · Phi-3 Mini · ChromaDB</span>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topTitle">Chat with Sahara</div>
+      <div class="topbar-right">
+        <span class="badge" id="memBadge">0 memories</span>
+        <button class="lock-app-btn" id="btnLock">🔒 Lock</button>
+      </div>
+    </div>
+
+    <!-- CRISIS BAR -->
+    <div class="crisis-bar" id="crisisBar">
+      <span>⚠️</span>
+      <div><strong>We're concerned about you.</strong> Please reach out immediately:<br>
+      iCall: <strong>9152987821</strong> &nbsp;·&nbsp; AASRA: <strong>9820466726</strong> &nbsp;·&nbsp; Vandrevala: <strong>9999666555</strong></div>
+    </div>
+
+    <!-- PANELS -->
+    <!-- CHAT -->
+    <div class="panel active" id="panel-chat">
+      <div class="chat-area" id="chatArea">
+        <div class="msg ai">
+          <div class="avatar ai">S</div>
+          <div>
+            <div class="bubble ai">Namaste 🙏 I'm Sahara, your memory companion.
+
+I'm here to help you feel less alone — whether you want to revisit a warm memory, talk through your feelings, or simply have someone listen.
+
+Upload a WhatsApp chat first, then ask me: <em>"I miss Aai today"</em> or <em>"Tell me about a happy moment with Papa."</em>
+
+Everything stays on your device. Always.</div>
+            <div class="msg-meta">Sahara · now · on-device 🔒</div>
+          </div>
+        </div>
+      </div>
+      <div class="chat-bottom">
+        <canvas id="waveCanvas"></canvas>
+        <div class="input-row">
+          <textarea id="chatInput" rows="1" placeholder="Share what's on your heart…"></textarea>
+          <button class="ib" id="btnVoiceChat" title="Voice input">🎙️</button>
+          <button class="ib" id="btnSend" title="Send">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+        <div class="chat-hint">🔒 Everything stays on your device · Enter to send</div>
+      </div>
+      <div class="chat-disclaimer">Sahara is an AI companion, not a therapist. In crisis: iCall 9152987821 · Vandrevala 9999666555</div>
+    </div>
+
+    <!-- VOICE -->
+    <div class="panel" id="panel-voice" style="align-items:center;justify-content:center;">
+      <div class="voice-center">
+        <canvas class="v-wave" id="vWave"></canvas>
+        <div class="v-orb" id="vOrb">
+          <div class="v-ring"></div><div class="v-ring"></div>
+          <span id="vOrbIcon">🎙️</span>
+        </div>
+        <div class="v-title">Speak to Sahara</div>
+        <div class="v-status" id="vStatus">Tap orb to start recording</div>
+        <div class="v-transcript" id="vTranscript"></div>
+        <button class="btn-ember" id="btnVProcess" style="display:none;width:100%;max-width:240px;margin:0 auto;">✨ Send to Sahara</button>
+        <div class="lang-row">
+          <button class="lang-btn active" data-lang="hi">हिंदी</button>
+          <button class="lang-btn" data-lang="en">English</button>
+          <button class="lang-btn" data-lang="mr">मराठी</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MEMORIES -->
+    <div class="panel" id="panel-memories">
+      <div class="panel-pad" style="flex:1;overflow-y:auto;">
+        <div class="ph"><h2>Your Memories</h2><p>Semantically indexed moments from your conversations</p></div>
+        <div class="mem-search">
+          <span style="color:var(--dim)">🔍</span>
+          <input type="text" id="memSearch" placeholder="Search memories…">
+        </div>
+        <div class="mem-grid" id="memGrid"></div>
+      </div>
+    </div>
+
+    <!-- UPLOAD -->
+    <div class="panel" id="panel-upload">
+      <div class="panel-pad" style="flex:1;overflow-y:auto;">
+        <div class="ph"><h2>Upload WhatsApp Chat</h2><p>Processed 100% on your device — never sent anywhere.</p></div>
+        <div class="howto"><strong>How to export from WhatsApp:</strong><span>Open chat → ⋮ Menu → More → Export Chat → Without Media</span></div>
+        <div class="upload-zone" id="uploadZone">
+          <div class="uz-icon">📁</div>
+          <div class="uz-label">Drop your _chat.txt file here</div>
+          <div class="uz-hint">Or tap to browse · WhatsApp exports work on Android & iOS</div>
+          <input type="file" id="fileInput" accept=".txt" style="display:none">
+        </div>
+        <div class="file-chip" id="fileChip">
+          <span style="font-size:1.8rem">📄</span>
+          <div>
+            <div class="fc-name" id="fcName"></div>
+            <div class="fc-size" id="fcSize"></div>
+          </div>
+        </div>
+        <button class="proc-btn" id="btnProcess">✨ Parse &amp; Build Memory Index</button>
+        <div class="prog-wrap" id="progWrap">
+          <div class="prog-top"><span id="progLabel">Processing…</span><span id="progPct">0%</span></div>
+          <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+          <div class="step" id="s1"><span class="step-ic">⏳</span>Parsing WhatsApp messages</div>
+          <div class="step" id="s2"><span class="step-ic">⏳</span>Generating embeddings (all-MiniLM-L6-v2)</div>
+          <div class="step" id="s3"><span class="step-ic">⏳</span>Storing in ChromaDB vector store</div>
+          <div class="step" id="s4"><span class="step-ic">⏳</span>Memory index ready</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AASMAN -->
+    <div class="panel" id="panel-aasman" style="flex-direction:column;overflow:hidden;">
+      <div class="sky-header">
+        <h2 style="color:#C8D8F0">Aasman · आसमान</h2>
+        <p>The Community Sky — anonymous, ephemeral shared presence</p>
+      </div>
+      <div class="sky-tabs">
+        <button class="sky-tab active" data-sky="stars">🌟 Sky</button>
+        <button class="sky-tab" data-sky="diyas">🪔 Diyas</button>
+        <button class="sky-tab" data-sky="whispers">🌬️ Whispers</button>
+        <button class="sky-tab" data-sky="breath">🫁 Breathe</button>
+      </div>
+      <div id="sky-stars" class="sky-content" style="flex:1;position:relative;overflow:hidden;">
+        <canvas id="starCanvas"></canvas>
+        <div style="position:absolute;bottom:1.2rem;left:50%;transform:translateX(-50%);text-align:center;">
+          <div style="color:#3d5070;font-size:0.72rem;margin-bottom:0.5rem;">Tap anywhere to light a diya</div>
+          <div style="color:#5a7aa0;font-size:0.75rem;" id="liveCount">0 people sharing this sky</div>
+        </div>
+      </div>
+      <div id="sky-diyas" class="sky-content diya-panel" style="display:none;flex:1;overflow-y:auto;">
+        <div style="color:#8BADD4;font-size:0.82rem;margin-bottom:0.5rem;">Diyas lit in the last 24 hours</div>
+        <div class="diya-grid" id="diyaGrid"></div>
+      </div>
+      <div id="sky-whispers" class="sky-content whisper-panel" style="display:none;flex:1;overflow-y:auto;flex-direction:column;">
+        <div style="color:#8BADD4;font-size:0.82rem;margin-bottom:0.8rem;">Whispers released into the sky (disappear in 7 days)</div>
+        <div id="whisperList"></div>
+        <div class="whisper-input-wrap">
+          <div class="whisper-row">
+            <input type="text" id="whisperInput" placeholder="Release a whisper into the sky…" maxlength="140">
+            <button class="ib" style="color:#8BADD4;" id="btnWhisper">🌬️</button>
+          </div>
+        </div>
+      </div>
+      <div id="sky-breath" class="sky-content breath-panel" style="display:none;flex:1;">
+        <div class="breath-orb" id="breathOrb">Breathe</div>
+        <div class="breath-label" id="breathLabel">Tap to start</div>
+        <div style="font-size:0.72rem;color:#3d5070;text-align:center;max-width:260px;">4-7-6-2 breathing: Inhale · Hold · Exhale · Rest</div>
+      </div>
+    </div>
+
+    <!-- BAITHAK -->
+    <div class="panel" id="panel-baithak">
+      <div class="baithak-wrap">
+        <div class="ph"><h2>Baithak · बैठक</h2><p>Peer support forum — anonymous, warm, human</p></div>
+        <div class="bk-tabs">
+          <button class="bk-tab active" data-bk="browse">Browse</button>
+          <button class="bk-tab" data-bk="post">Share</button>
+          <button class="bk-tab" data-bk="volunteer">Volunteer</button>
+        </div>
+        <div id="bk-browse"></div>
+        <div id="bk-post" style="display:none;">
+          <div class="new-post-area">
+            <div class="post-symbol" id="postSymbol" title="Tap to change symbol">
+              🦋 <span>Your anonymous symbol · tap to change</span>
+            </div>
+            <textarea id="postText" rows="4" placeholder="Share what's on your heart anonymously…"></textarea>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.8rem;" id="catPicker"></div>
+            <button class="btn-ember" id="btnPost">Share Anonymously</button>
+          </div>
+        </div>
+        <div id="bk-volunteer" style="display:none;">
+          <div style="background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:1.2rem;margin-bottom:0.8rem;">
+            <div style="font-size:0.8rem;color:var(--mid);margin-bottom:0.8rem;">Your impact this week</div>
+            <div style="display:flex;gap:1.5rem;">
+              <div style="text-align:center;"><div style="font-family:'Cormorant Garamond',serif;font-size:2rem;color:var(--ember);" id="volReplies">3</div><div style="font-size:0.65rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.1em;">Responses</div></div>
+              <div style="text-align:center;"><div style="font-family:'Cormorant Garamond',serif;font-size:2rem;color:var(--ember);" id="volHelped">12</div><div style="font-size:0.65rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.1em;">People Helped</div></div>
+            </div>
+          </div>
+          <div id="volQueue"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANALYTICS -->
+    <div class="panel" id="panel-analytics">
+      <div class="panel-pad" style="flex:1;overflow-y:auto;">
+        <div class="ph"><h2>Insights</h2><p>Your interaction patterns and memory analytics</p></div>
+        <div class="metrics">
+          <div class="metric-c"><div class="metric-val" id="mParsed">0</div><div class="metric-lbl">Messages Parsed</div></div>
+          <div class="metric-c"><div class="metric-val" id="mChats">0</div><div class="metric-lbl">AI Chats</div></div>
+          <div class="metric-c"><div class="metric-val" id="mVoice">0</div><div class="metric-lbl">Voice Queries</div></div>
+          <div class="metric-c"><div class="metric-val" id="mMemories">0</div><div class="metric-lbl">Memories Indexed</div></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Messages by Day of Week</div>
+          <div class="bars" id="barChart"></div>
+          <div class="bar-lbls" id="barLabels"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Top Senders</div>
+          <div id="sendersList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="panel" id="panel-settings">
+      <div class="panel-pad" style="flex:1;overflow-y:auto;">
+        <div class="ph"><h2>Settings</h2><p>Configure your Sahara experience</p></div>
+        <div class="helplines">
+          <div class="hl-title">⚠️ Crisis Helplines — Always Available</div>
+          <div class="hl-row"><span class="hl-name">iCall (Tata Institute)</span><span class="hl-num">9152987821</span></div>
+          <div class="hl-row"><span class="hl-name">Vandrevala Foundation</span><span class="hl-num">9999666555</span></div>
+          <div class="hl-row"><span class="hl-name">AASRA</span><span class="hl-num">9820466726</span></div>
+        </div>
+        <div class="settings-s">
+          <div class="ss-title">Privacy & Security</div>
+          <div class="sr"><div class="sr-info"><div class="sr-name">Face Unlock</div><div class="sr-desc">Use device camera to authenticate</div></div><button class="toggle on" onclick="this.classList.toggle('on')"></button></div>
+          <div class="sr"><div class="sr-info"><div class="sr-name">On-Device Only Mode</div><div class="sr-desc">Never send data to external servers</div></div><button class="toggle on" onclick="this.classList.toggle('on')"></button></div>
+          <div class="sr"><div class="sr-info"><div class="sr-name">Auto-Lock (5 min)</div><div class="sr-desc">Lock app after inactivity</div></div><button class="toggle on" onclick="this.classList.toggle('on')"></button></div>
+          <div class="sr"><div class="sr-info"><div class="sr-name">Session Limit (20 min)</div><div class="sr-desc">Soft session cap with visible countdown</div></div><button class="toggle on" onclick="this.classList.toggle('on')"></button></div>
+        </div>
+        <div class="settings-s">
+          <div class="ss-title">AI Model</div>
+          <div class="sr"><div class="sr-info"><div class="sr-name">Language Model</div><div class="sr-desc">Phi-3 Mini 4k Instruct (Q4 GGUF)</div></div><span class="sr-tag tag-ok">LOADED</span></div>
+          <div class="sr"><div class="sr-info"><div class="sr-name">Embedding Model</div><div class="sr-desc">all-MiniLM-L6-v2 · sentence-transformers</div></div><span class="sr-tag tag-ok">READY</span></div>
+          <div class="sr"><div class="sr-info"><div class="sr-name">Vector Store</div><div class="sr-desc">ChromaDB · ./chroma_db (persistent)</div></div><span class="sr-tag tag-ok">ACTIVE</span></div>
+          <div class="sr"><div class="sr-info"><div class="sr-name">Speech Recognition</div><div class="sr-desc">Vosk · hi + en-in models</div></div><span class="sr-tag tag-warn">DEMO</span></div>
+        </div>
+        <div class="settings-s">
+          <div class="ss-title">Language & Culture</div>
+          <div class="sr"><div class="sr-info"><div class="sr-name">Cultural Context</div><div class="sr-desc">India · Maharashtra · Marathi / Hindi / English</div></div><button class="toggle on" onclick="this.classList.toggle('on')"></button></div>
+          <div class="sr"><div class="sr-info"><div class="sr-name">Crisis Detection</div><div class="sr-desc">Keyword + vocal acoustic distress detection</div></div><button class="toggle on" onclick="this.classList.toggle('on')"></button></div>
+          <div class="sr"><div class="sr-info"><div class="sr-name">No Impersonation Mode</div><div class="sr-desc">Sahara never speaks as the deceased</div></div><button class="toggle on"></button></div>
+        </div>
+        <div class="settings-s">
+          <div class="ss-title">Data</div>
+          <div class="sr" style="cursor:pointer" onclick="clearAll()"><div class="sr-info"><div class="sr-name" style="color:var(--danger)">Clear All Memories</div><div class="sr-desc">Remove all parsed messages and embeddings</div></div><span>🗑️</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══ STATE ══
+const S = {
+  messages: [], chatCount: 0, voiceCount: 0,
+  recording: false, mediaRecorder: null, audioChunks: [],
+  lang: 'hi', faceStream: null, autoLockTimer: null,
+  diyas: [], whispers: [], threads: [],
+  breathPhase: 0, breathTimer: null, breathActive: false,
+  currentSymbol: '🦋',
+  currentBkTab: 'browse', currentSkyTab: 'stars',
+};
+
+const CRISIS = ['suicide','kill myself','end it','die','no point','self harm',
+  'मारना','खत्म','आत्महत्या','मर जाना','जीने का मतलब नहीं'];
+
+const SYMBOLS = ['🦋','🌿','🪶','🌙','🌊','🌱','🍃','🌾','🌸','🔥','🌻','⭐','🪷','🌺'];
+const CATS = ['Missing someone','Festival loneliness','Grief','Seeking strength','Night thoughts','Family','Home','General'];
+const DEMO_THREADS = [
+  {sym:'🌿',cat:'Missing someone',text:'Aai ki bahut yaad aa rahi hai. Aaj unka birthday hai aur main pehli baar unke bina hun.',urgency:'high',replies:2,hearts:5},
+  {sym:'🌊',cat:'Festival loneliness',text:'Diwali mein ghar pe akela hoon. Sab log apne ghar gaye hain. Yeh raat bahut lambi lagti hai.',urgency:'med',replies:1,hearts:8},
+  {sym:'🪶',cat:'Seeking strength',text:'3 mahine ho gaye hain. Log kehte hain time heal karta hai, par kuch cheezein... woh nahi jaatein.',urgency:'low',replies:4,hearts:12},
+  {sym:'🌸',cat:'Grief',text:'Pehli baar bina Papa ke Ganesh Chaturthi manayi. Unka kurta pehna tha. Kaafi help kiya.',urgency:'low',replies:3,hearts:9},
+];
+const DEMO_WHISPERS = [
+  'Tum jahan bhi ho, I hope you can see these stars too.',
+  'Aaj bahut roya. Bahut dino baad. Thoda better laga.',
+  'Missing you doesn\'t get easier. I just carry it differently now.',
+  'Aai, sooji ka halwa banana seekh liya. Theek nahi bana, par try kiya.',
+  'You taught me silence can be full of love.',
+];
+const DEMO_DIYAS = [
+  {color:'#FFD700',intent:'For Aai'},{color:'#FF6B6B',intent:'For Papa'},{color:'#98FB98',intent:'For healing'},
+  {color:'#87CEEB',intent:'For peace'},{color:'#DDA0DD',intent:'For remembrance'},
+];
+
+// ══ LOCK ══
+document.getElementById('btnFace').addEventListener('click', startFace);
+document.getElementById('btnPin').addEventListener('click', () => {
+  document.getElementById('pinModal').classList.add('show');
+  document.getElementById('pinInput').focus();
+});
+document.getElementById('btnPinCancel').addEventListener('click', () => {
+  document.getElementById('pinModal').classList.remove('show');
+  document.getElementById('pinInput').value = '';
+  document.getElementById('pinErr').textContent = '';
+});
+document.getElementById('btnPinOk').addEventListener('click', checkPin);
+document.getElementById('pinInput').addEventListener('keydown', e => { if(e.key==='Enter') checkPin(); });
+
+function checkPin() {
+  if (document.getElementById('pinInput').value === '1234') {
+    document.getElementById('pinModal').classList.remove('show');
+    enterApp();
+  } else {
+    document.getElementById('pinErr').textContent = 'Incorrect PIN. (Demo: 1234)';
+    document.getElementById('pinInput').value = '';
+  }
+}
+
+async function startFace() {
+  const st = document.getElementById('lockStatus');
+  st.className = 'lock-status'; st.textContent = 'Requesting camera…';
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    st.className = 'lock-status err'; st.textContent = 'Camera not supported — use PIN instead';
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:240},height:{ideal:240}}});
+    S.faceStream = stream;
+    const vid = document.getElementById('lockVideo');
+    vid.srcObject = stream;
+    vid.play().catch(()=>{});
+    vid.classList.add('show');
+    document.getElementById('facePh').style.display = 'none';
+    st.textContent = 'Camera active — scanning…';
+    setTimeout(runScan, 300);
+  } catch(e) {
+    st.className = 'lock-status err';
+    st.textContent = e.name === 'NotAllowedError' ? 'Camera permission denied — use PIN' :
+                     e.name === 'NotFoundError'   ? 'No camera found — use PIN' :
+                                                    'Camera unavailable — use PIN instead';
+  }
+}
+
+function runScan() {
+  const st = document.getElementById('lockStatus');
+  const fill = document.getElementById('scanFill');
+  const canvas = document.getElementById('lockCanvas');
+  const vid = document.getElementById('lockVideo');
+  const ctx = canvas.getContext('2d');
+  canvas.width = 168; canvas.height = 168;
+  let pct = 0, frames = 0, waited = 0;
+  const iv = setInterval(() => {
+    // Wait up to ~3s for video to be ready, then proceed anyway
+    if (vid.readyState < 2) { if (++waited < 38) return; }
+    frames++;
+    ctx.clearRect(0,0,168,168);
+    const sy = ((Date.now()/18) % 168);
+    const g = ctx.createLinearGradient(0,sy-28,0,sy+10);
+    g.addColorStop(0,'rgba(181,101,42,0)'); g.addColorStop(1,'rgba(181,101,42,0.45)');
+    ctx.fillStyle = g; ctx.fillRect(0,sy-28,168,40);
+    ctx.strokeStyle='rgba(181,101,42,0.7)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0,sy); ctx.lineTo(168,sy); ctx.stroke();
+    if (frames > 3) {
+      const cs=16,bx=34,by=16,bw=100,bh=120;
+      ctx.strokeStyle=`rgba(181,101,42,${0.4+0.3*Math.sin(Date.now()/280)})`; ctx.lineWidth=1.5;
+      [[bx,by],[bx+bw,by],[bx,by+bh],[bx+bw,by+bh]].forEach(([x,y],i)=>{
+        ctx.beginPath();ctx.moveTo(x+(i%2?-cs:0),y);ctx.lineTo(x+(i%2?0:cs),y);
+        ctx.moveTo(x,y+(i<2?0:-cs));ctx.lineTo(x,y+(i<2?cs:0));ctx.stroke();
+      });
+      st.className='lock-status'; st.textContent = `Scanning… ${Math.round(pct)}%`;
+    }
+    pct = Math.min(pct + 1.4, 100);
+    fill.style.width = pct + '%';
+    if (pct >= 100) { clearInterval(iv); unlockDone(); }
+  }, 80);
+}
+
+function unlockDone() {
+  if (S.faceStream) S.faceStream.getTracks().forEach(t=>t.stop());
+  const st = document.getElementById('lockStatus');
+  st.className = 'lock-status ok'; st.textContent = '✓ Face verified — Welcome back';
+  setTimeout(enterApp, 800);
+}
+
+function enterApp() {
+  document.getElementById('lock-screen').classList.add('out');
+  document.getElementById('app').classList.add('show');
+  resetAL(); updateBadge(); renderAnalytics(); renderBaithak(); renderAasman();
+  setTimeout(() => document.getElementById('lock-screen').style.display='none', 800);
+}
+
+document.getElementById('btnLock').addEventListener('click', doLock);
+function doLock() {
+  document.getElementById('app').classList.remove('show');
+  const ls = document.getElementById('lock-screen');
+  ls.style.display='flex'; ls.classList.remove('out');
+  document.getElementById('lockVideo').classList.remove('show');
+  document.getElementById('facePh').style.display='flex';
+  document.getElementById('lockStatus').textContent='Tap to activate face unlock';
+  document.getElementById('scanFill').style.width='0%';
+  const ctx=document.getElementById('lockCanvas').getContext('2d');
+  ctx.clearRect(0,0,200,200);
+}
+
+// AUTO LOCK
+function resetAL() {
+  clearTimeout(S.autoLockTimer);
+  S.autoLockTimer = setTimeout(doLock, 5*60*1000);
+}
+['mousemove','keydown','touchstart','click'].forEach(e=>document.addEventListener(e,resetAL,{passive:true}));
+
+// ══ NAVIGATION ══
+document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+    document.getElementById('topTitle').textContent = btn.textContent.trim();
+  });
+});
+
+// ══ CHAT ══
+const chatArea = document.getElementById('chatArea');
+const chatInput = document.getElementById('chatInput');
+
+chatInput.addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} });
+chatInput.addEventListener('input', function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';});
+document.getElementById('btnSend').addEventListener('click', sendMsg);
+
+// ══ FIX 1: addMsg — was completely missing, caused ReferenceError on every chat send ══
+function addMsg(role, text, isCrisis) {
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ' + role;
+  const now = new Date();
+  const timeStr = fmtTime(now);
+  wrap.innerHTML = `
+    <div class="avatar ${role}">${role === 'ai' ? 'S' : 'U'}</div>
+    <div>
+      <div class="bubble ${role}${isCrisis ? ' crisis' : ''}">${escH(text)}</div>
+      <div class="msg-meta">${role === 'ai' ? 'Sahara' : 'You'} · ${timeStr}${role === 'ai' ? ' · on-device 🔒' : ''}</div>
+    </div>`;
+  chatArea.appendChild(wrap);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+// ══ FIX 2: showTyping / removeTyping — were completely missing, caused ReferenceError ══
+function showTyping() {
+  const el = document.createElement('div');
+  el.className = 'msg ai'; el.id = 'typingIndicator';
+  el.innerHTML = `<div class="avatar ai">S</div><div class="typing-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  chatArea.appendChild(el);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function removeTyping() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.remove();
+}
+
+function sendMsg() {
+  const t = chatInput.value.trim(); if(!t) return;
+  addMsg('user', t); chatInput.value=''; chatInput.style.height='auto';
+  S.chatCount++;
+  const crisis = CRISIS.some(k=>t.toLowerCase().includes(k));
+  if (crisis) {
+    document.getElementById('crisisBar').classList.add('show');
+    showTyping();
+    setTimeout(()=>{removeTyping();addMsg('ai','⚠️ I\'m really concerned for you right now.\n\nPlease reach out for immediate help:\n📞 iCall: 9152987821\n📞 AASRA: 9820466726\n📞 Vandrevala Foundation: 9999666555\n\nYou are not alone. 💙',true);},700);
+    return;
+  }
+  document.getElementById('crisisBar').classList.remove('show');
+  showTyping();
+  const mems = retrieve(t, 3);
+  setTimeout(()=>{ removeTyping(); addMsg('ai', buildReply(t, mems)); updateMetrics(); }, 1000+Math.random()*800);
+}
+
+function retrieve(q, k=5) {
+  if (!S.messages.length) return [];
+  const words = q.toLowerCase().split(/\s+/).filter(w=>w.length>2);
+  return S.messages.map(m=>({...m,sc:words.filter(w=>m.message.toLowerCase().includes(w)).length/Math.max(words.length,1)}))
+    .filter(m=>m.sc>0).sort((a,b)=>b.sc-a.sc).slice(0,k);
+}
+
+// ══ PERSON PROFILE ══
+const Person = {
+  name: '', msgs: [], vocab: {}, endearments: [], topEmojis: [],
+  usesEmoji: false, signaturePhrases: [], mixedLang: false,
+  punctuation: '.', avgWords: 15, openingWords: [], closingWords: [],
+  sampleReplies: [], timeOfDayGreets: {}, topTopics: [],
+  usesEllipsis: false, usesExclamation: false, capsFreq: 0,
+};
+
+const ENDEARMENTS = ['beta','bete','beti','jaan','jaanu','babu','baba','dikra','dikri',
+  'pora','pori','munna','munni','laadla','laadli','raja','rani','sona','bachcha',
+  'mere bachche','meri jaan','gudiya','champ','yaar','dost','bhai','didi','tum'];
+const HINDI_WORDS = ['aaj','kal','nahi','bahut','thoda','kuch','sab','ghar','yaad',
+  'khayal','rakhna','kha','pina','aana','jana','raho','rehna','hoga','tha','thi',
+  'hai','hain','mera','meri','tumhara','teri','tere','apna','bilkul','zaroor',
+  'jaldi','theek','achha','sunna','bolna','khana','pani','chai','raat','subah'];
+
+// Emotional intent detection
+const INTENT_PATTERNS = {
+  missing:   /miss|yaad|aati|chahta|chahti|sochta|sochti|remember|remembering/i,
+  sad:       /sad|dukhi|rona|roya|aansu|cry|crying|alone|akela|akeli|hurt|dard|grief|dukh/i,
+  food:      /khana|food|kha|eat|bhooka|hungry|chai|coffee|lunch|dinner|breakfast|recipe/i,
+  festival:  /diwali|holi|eid|ganesh|navratri|birthday|anniversary|festival|tyohaar/i,
+  health:    /health|sehat|bimar|sick|doctor|davai|medicine|theek|hospital/i,
+  happy:     /khush|happy|acha|achha|mazaa|maza|excited|good news|khushkhabari/i,
+  angry:     /gussa|angry|frustrat|naraaz|thak|tired|bore|bored|pareshan/i,
+  night:     /raat|night|so ja|neend|nahi so|can't sleep|insomnia|late/i,
+  morning:   /subah|morning|uthna|uthi|utha|woke|breakfast|chai/i,
+  memory:    /woh din|remember when|yaad hai|us waqt|that time|childhood|bachpan/i,
+  advice:    /kya karun|what should|suggest|batao|help me|samajh nahi|confused/i,
+};
+
+// Conversation history for context
+const ConvHistory = [];
+const MAX_HISTORY = 6;
+
+function detectIntent(query) {
+  const q = query.toLowerCase();
+  const matched = [];
+  for (const [intent, rx] of Object.entries(INTENT_PATTERNS)) {
+    if (rx.test(q)) matched.push(intent);
+  }
+  return matched;
+}
+
+function buildPersonProfile(messages) {
+  const selfRx = /^(me|i|main|mujhe|myself)$/i;
+  const freq = {};
+  messages.forEach(m => {
+    if (!selfRx.test(m.sender.trim())) freq[m.sender] = (freq[m.sender]||0)+1;
+  });
+  const name = Object.entries(freq).sort((a,b)=>b[1]-a[1])[0]?.[0] || '';
+  if (!name) return;
+  const their = messages.filter(m => m.sender === name && m.message.trim().length > 3);
+  if (!their.length) return;
+  Person.name = name; Person.msgs = their;
+
+  const vocab = {};
+  their.forEach(m => {
+    m.message.toLowerCase().split(/[\s,!?.]+/).filter(w=>w.length>2).forEach(w => { vocab[w] = (vocab[w]||0)+1; });
+  });
+  Person.vocab = vocab;
+  Person.avgWords = their.reduce((s,m)=>s+m.message.split(/\s+/).length,0)/their.length;
+
+  const allText = their.map(m=>m.message.toLowerCase()).join(' ');
+  Person.endearments = ENDEARMENTS.filter(e=>allText.includes(e));
+
+  const hindiCount = HINDI_WORDS.filter(w=>allText.includes(w)).length;
+  Person.mixedLang = hindiCount >= 4;
+
+  const emojiRx = /\p{Emoji_Presentation}/gu;
+  const allEmoji = their.flatMap(m=>[...(m.message.match(emojiRx)||[])]);
+  Person.usesEmoji = allEmoji.length > 0;
+  const ef = {};
+  allEmoji.forEach(e=>ef[e]=(ef[e]||0)+1);
+  Person.topEmojis = Object.entries(ef).sort((a,b)=>b[1]-a[1]).slice(0,8).map(e=>e[0]);
+
+  // Punctuation style
+  const exc = their.filter(m=>m.message.trimEnd().endsWith('!')).length;
+  const ell = their.filter(m=>m.message.includes('...')).length;
+  Person.usesExclamation = exc > their.length * 0.2;
+  Person.usesEllipsis = ell > their.length * 0.15;
+  if (exc > their.length*0.3) Person.punctuation = '!';
+  else if (ell > their.length*0.2) Person.punctuation = '...';
+  else Person.punctuation = '.';
+
+  // Caps frequency (how often they capitalize mid-sentence)
+  const capsWords = their.flatMap(m=>m.message.split(/\s+/).filter(w=>w.length>2&&w===w.toUpperCase())).length;
+  Person.capsFreq = capsWords / Math.max(their.length, 1);
+
+  // Opening & closing words
+  const opW = {};
+  their.forEach(m=>{
+    const w = m.message.trim().split(/\s+/)[0].replace(/[!?,]/g,'').toLowerCase();
+    if(w.length>1) opW[w]=(opW[w]||0)+1;
+  });
+  Person.openingWords = Object.entries(opW).filter(e=>e[1]>1).sort((a,b)=>b[1]-a[1]).slice(0,6).map(e=>e[0]);
+
+  const clW = {};
+  their.forEach(m=>{
+    const ws = m.message.trim().replace(/[!?.]+$/,'').split(/\s+/);
+    const w = ws[ws.length-1].toLowerCase();
+    if(w.length>2) clW[w]=(clW[w]||0)+1;
+  });
+  Person.closingWords = Object.entries(clW).filter(e=>e[1]>1).sort((a,b)=>b[1]-a[1]).slice(0,6).map(e=>e[0]);
+
+  // Signature phrases (2–4 word runs used 2+ times)
+  const phr = {};
+  their.forEach(m=>{
+    const ws = m.message.toLowerCase().split(/\s+/);
+    for(let i=0;i<ws.length-1;i++){
+      const bi = ws[i]+' '+ws[i+1];
+      if(bi.length>6) phr[bi]=(phr[bi]||0)+1;
+      if(i<ws.length-2){const tri=bi+' '+ws[i+2];if(tri.length>8)phr[tri]=(phr[tri]||0)+1;}
+    }
+  });
+  Person.signaturePhrases = Object.entries(phr).filter(e=>e[1]>=2).sort((a,b)=>b[1]-a[1]).slice(0,15).map(e=>e[0]);
+
+  // Top topics from vocab (excluding stop words)
+  const stopWords = new Set(['aur','the','and','but','that','with','this','have','from','they','been','were','their','what','when','said','each','which','will','about','would','there','could','after','into','than','then','some','time','very','just','like','also','more','other']);
+  Person.topTopics = Object.entries(vocab)
+    .filter(([w])=>!stopWords.has(w) && w.length > 3)
+    .sort((a,b)=>b[1]-a[1]).slice(0,20).map(e=>e[0]);
+
+  // Best sample replies — emotional, personal, varied
+  Person.sampleReplies = their
+    .filter(m=>{
+      const wc=m.message.split(/\s+/).length;
+      return wc>=4&&wc<=60&&!m.message.includes('omitted')&&!m.message.startsWith('http')&&!m.message.includes('<Media>');
+    })
+    .sort(()=>Math.random()-0.5).slice(0,40);
+
+  console.log(`[Sahara] Profile: "${name}", ${their.length} msgs, mixed:${Person.mixedLang}, emoji:${Person.usesEmoji}, punct:"${Person.punctuation}"`);
+}
+
+// ── INTENT → RESPONSE TEMPLATES ───────────────────────────────
+function getIntentResponse(intents, query, mems) {
+  const P = Person;
+  const M = P.mixedLang;
+  const hour = new Date().getHours();
+  const isNight = hour >= 21 || hour < 5;
+  const isMorning = hour >= 5 && hour < 11;
+
+  // Pull a real memory anchored to the query
+  const anchor = mems.length > 0 ? mems[Math.floor(Math.random()*Math.min(mems.length,3))].message.trim()
+                : P.sampleReplies.length ? P.sampleReplies[Math.floor(Math.random()*P.sampleReplies.length)].message.trim()
+                : null;
+
+  // Score-weighted template banks per intent
+  const banks = {
+    missing: M ? [
+      `Arey, main toh hamesha yahan hun${P.usesEllipsis?'...':'.'} Tumhari yaad mujhe bhi aati hai na${P.punctuation}`,
+      `Suno — agar dil bhari lage, toh rona bhi theek hai. Main sun raha/rahi hun${P.punctuation}`,
+      `Tumne aaj kuch khaya? ${P.endearments.length?cap(pick(P.endearments))+', ':''} apna khayal rakhna zaroori hai${P.punctuation}`,
+      `Main jaanta/jaanti hun kitna khaali lagta hai. Par tum akele nahi ho${P.usesEllipsis?'...':'.'}`,
+    ] : [
+      `I'm right here with you. Missing someone you love is one of the hardest things${P.punctuation}`,
+      `You're not alone in this. I carry you with me too${P.punctuation}`,
+      `It's okay to feel this way. Let it out${P.usesEllipsis?'...':'.'}`,
+    ],
+    sad: M ? [
+      `Ek kaam karo — ek gehri saans lo. Main yahan hun${P.punctuation}`,
+      `Kuch bolna nahi hai toh mat bolo${P.usesEllipsis?'...':','} bas yahan baitho mere saath${P.punctuation}`,
+      `Yeh dard real hai. Isko feel karo — bhagao mat${P.punctuation}`,
+      `${P.endearments.length?cap(pick(P.endearments))+', ':''}bahut uthaya hai tumne. Thoda rest karo aaj${P.punctuation}`,
+    ] : [
+      `It's okay to not be okay right now${P.punctuation}`,
+      `Grief doesn't follow a schedule. Be gentle with yourself${P.punctuation}`,
+      `I hear you. Take your time${P.usesEllipsis?'...':'.'}`,
+    ],
+    food: M ? [
+      `${P.endearments.length?cap(pick(P.endearments))+', ':''}kuch kha lena aaj${P.punctuation} Woh bhi ek tarah ka pyaar hai khud se${P.punctuation}`,
+      `Chai pi? Subah ki chai ke baad duniya thodi theek lagti hai${P.usesEllipsis?'...':'.'}`,
+      `Khana mat bhoolna. Main hoti/hota toh haath se khilata/khilati${P.punctuation}`,
+    ] : [
+      `Please eat something today${P.punctuation} Even a small meal counts${P.punctuation}`,
+      `You mentioned food — don't skip meals, even on hard days${P.punctuation}`,
+    ],
+    festival: M ? [
+      `${P.endearments.length?cap(pick(P.endearments))+', ':''}tyohaar alag lagta hai na pehli baar${P.usesEllipsis?'...':'.'}  Par hum celebrate karte the na${P.punctuation} Woh memories kahin nahi jaati${P.punctuation}`,
+      `Iss baar akela feel hoga — bilkul normal hai yeh. Par unka pyaar toh hai na abhi bhi${P.punctuation}`,
+    ] : [
+      `Festivals can feel so different now. That ache is love${P.punctuation}`,
+      `The traditions they loved — keeping them alive is a way of keeping them close${P.punctuation}`,
+    ],
+    night: M ? [
+      `${isNight?'Itni raat ko nahi so paa rahe?':''} ${P.endearments.length?cap(pick(P.endearments))+', ':''}raat ko thoughts zyada aate hain${P.usesEllipsis?'...':'.'}`,
+      `So jao thoda. Subah main phir yahan hun${P.punctuation}`,
+      `Neend nahi aa rahi? Main hun yahan${P.usesEllipsis?'...':'.'}`,
+    ] : [
+      `The nights are the hardest, aren't they${P.punctuation}`,
+      `${isNight?'It\'s late.':''} Try to rest${P.usesEllipsis?'...':'.'} I'll be here in the morning too${P.punctuation}`,
+    ],
+    morning: M ? [
+      `${isMorning?'Subah subah yaad aayi':''}${P.endearments.length?' '+cap(pick(P.endearments)):''}${P.punctuation} Aaj ka din theek jayega${P.punctuation}`,
+      `Chai pi li? Nahi toh abhi pee lo${P.usesExclamation?'!':'.'}`,
+    ] : [
+      `Good morning${P.endearments.length?' '+cap(pick(P.endearments)):''}${P.punctuation} Today will be okay${P.punctuation}`,
+    ],
+    happy: M ? [
+      `Sach mein${P.usesExclamation?'!':'?'} Yeh sun ke accha laga${P.usesExclamation?'!':'.'}`,
+      `Bas aise hi rehna${P.punctuation} Khush rehte ho toh main bhi khush rehta/rehti hun${P.punctuation}`,
+    ] : [
+      `That makes me so happy to hear${P.usesExclamation?'!':'.'}`,
+      `Hold on to that feeling${P.punctuation}`,
+    ],
+    memory: M ? [
+      `Haan${P.usesEllipsis?'...':'!'} Woh waqt${P.usesEllipsis?'...':'.'}`,
+      `Yeh yaadein hi toh hain jo saath rehti hain${P.punctuation}`,
+      `Mujhe bhi yaad hai${P.usesEllipsis?'...':'.'}`,
+    ] : [
+      `I remember that too${P.usesEllipsis?'...':'.'}`,
+      `Those moments never really leave us${P.punctuation}`,
+      `Tell me more${P.usesEllipsis?'...':'.'}`,
+    ],
+    advice: M ? [
+      `Dekho${P.usesEllipsis?'...':','} ek ek kadam chalo. Saara bojh ek saath mat uthao${P.punctuation}`,
+      `Koi perfect answer nahi hai, par tum sahi direction mein ho${P.punctuation}`,
+      `Main kya kahunga/kahungi? Jo dil kahe${P.usesEllipsis?'...':'.'}`,
+    ] : [
+      `There's no perfect answer${P.usesEllipsis?'...':'.'} Trust yourself a little more${P.punctuation}`,
+      `One step at a time${P.punctuation} You don't have to figure it all out today${P.punctuation}`,
+    ],
+  };
+
+  // Pick matching intent bank, fallback to a generic warm response
+  let templateLine = null;
+  for (const intent of intents) {
+    if (banks[intent]) { templateLine = pick(banks[intent]); break; }
+  }
+
+  return { templateLine, anchor };
+}
+
+// ── MAIN REPLY BUILDER ──────────────────────────────────────────
+function buildReply(userQuery, mems) {
+  const P = Person;
+
+  // No profile — guide them to upload
+  if (!P.name) {
+    return "Upload a WhatsApp chat and I'll speak in their voice — the words they actually used, the way they wrote to you.\n\n*Sahara is a memory companion, not a substitute. In crisis: iCall 9152987821*";
+  }
+
+  // Log to conversation history
+  ConvHistory.push({ role: 'user', text: userQuery });
+  if (ConvHistory.length > MAX_HISTORY * 2) ConvHistory.splice(0, 2);
+
+  const intents = detectIntent(userQuery);
+  const { templateLine, anchor } = getIntentResponse(intents, userQuery, mems);
+
+  // Decide reply structure — vary it every time
+  const structures = [
+    'opener_anchor_warmth_close',
+    'anchor_template_close',
+    'opener_template_anchor',
+    'template_anchor_close',
+    'opener_anchor_close',
+    'template_close',
+  ];
+  const structure = structures[Math.floor(Math.random() * structures.length)];
+
+  const parts = [];
+
+  const opener = buildOpener();
+  const warmth = templateLine || buildWarmth(userQuery);
+  const anchorTxt = anchor ? trimAnchor(anchor) : null;
+  const closing = buildClosing();
+
+  switch(structure) {
+    case 'opener_anchor_warmth_close':
+      if(opener) parts.push(opener);
+      if(anchorTxt) parts.push(anchorTxt);
+      if(warmth) parts.push(warmth);
+      if(closing) parts.push(closing);
+      break;
+    case 'anchor_template_close':
+      if(anchorTxt) parts.push(anchorTxt);
+      if(warmth) parts.push(warmth);
+      if(closing) parts.push(closing);
+      break;
+    case 'opener_template_anchor':
+      if(opener) parts.push(opener);
+      if(warmth) parts.push(warmth);
+      if(anchorTxt) parts.push(anchorTxt);
+      break;
+    case 'template_anchor_close':
+      if(warmth) parts.push(warmth);
+      if(anchorTxt) parts.push(anchorTxt);
+      if(closing) parts.push(closing);
+      break;
+    case 'opener_anchor_close':
+      if(opener) parts.push(opener);
+      if(anchorTxt) parts.push(anchorTxt);
+      if(closing) parts.push(closing);
+      break;
+    case 'template_close':
+    default:
+      if(warmth) parts.push(warmth);
+      if(closing) parts.push(closing);
+      break;
+  }
+
+  // Remove duplicates / empty
+  let reply = parts.filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join('\n\n');
+
+  // Apply their emoji style — but only sometimes (feels more natural)
+  if (P.usesEmoji && P.topEmojis.length && Math.random() > 0.4) {
+    const e = P.topEmojis[Math.floor(Math.random()*Math.min(3,P.topEmojis.length))];
+    reply = reply.trimEnd() + ' ' + e;
+  }
+
+  // Ensure punctuation at end
+  if (reply && !reply.match(/[!?.…❤️🙏✨]$/u)) {
+    reply = reply.trimEnd() + P.punctuation;
+  }
+
+  // Vary the disclaimer — shorter, less clinical
+  const disclaimers = [
+    `\n\n— *${P.name}'s words, held by Sahara · Not a substitute for real support · iCall: 9152987821*`,
+    `\n\n— *Sahara is remembering ${P.name} with you · Crisis: 9152987821*`,
+    `\n\n— *These are ${P.name}'s words as Sahara recalls them · iCall 9152987821 if you need real support*`,
+  ];
+  reply += disclaimers[Math.floor(Math.random()*disclaimers.length)];
+
+  // Save to history
+  ConvHistory.push({ role: 'ai', text: reply });
+
+  return reply;
+}
+
+function trimAnchor(anchor) {
+  // Remove media/omit artifacts, trim to natural length
+  const clean = anchor.replace(/<[^>]+>/g,'').replace(/\(file attached\)/gi,'').trim();
+  const words = clean.split(/\s+/);
+  // Cut at natural sentence boundary where possible
+  if (words.length > 35) {
+    const shortened = words.slice(0, 33).join(' ');
+    // Try to end at last punctuation
+    const lastPunct = Math.max(shortened.lastIndexOf('.'), shortened.lastIndexOf('!'), shortened.lastIndexOf('?'), shortened.lastIndexOf('...'));
+    return lastPunct > shortened.length * 0.5 ? shortened.slice(0, lastPunct+1) : shortened + '…';
+  }
+  return clean;
+}
+
+function buildOpener() {
+  const P = Person;
+  // Only add opener ~60% of the time — not every message starts with a name
+  if (Math.random() > 0.6) return '';
+
+  if (P.endearments.length && P.openingWords.length && Math.random() > 0.4) {
+    const e = P.endearments[Math.floor(Math.random()*P.endearments.length)];
+    const w = P.openingWords[Math.floor(Math.random()*P.openingWords.length)];
+    return cap(e) + ', ' + w + (P.punctuation==='!'?'!':'…');
+  }
+  if (P.endearments.length) {
+    const e = P.endearments[Math.floor(Math.random()*P.endearments.length)];
+    return cap(e) + (P.punctuation==='!'?'!':',');
+  }
+  if (P.openingWords.length) {
+    const w = P.openingWords[Math.floor(Math.random()*P.openingWords.length)];
+    return cap(w) + (P.punctuation==='!'?'!':'…');
+  }
+  return '';
+}
+
+function buildWarmth(query) {
+  const P = Person;
+  const q = query.toLowerCase();
+
+  // Use their actual signature phrase if it matches the topic
+  const sigMatch = P.signaturePhrases.find(ph => ph.split(' ').some(w => w.length > 3 && q.includes(w)));
+  if (sigMatch && Math.random() > 0.3) return cap(sigMatch) + P.punctuation;
+
+  // Use a random line from their top vocab to feel more personalised
+  const topic = P.topTopics.find(w => q.includes(w));
+  if (topic && P.mixedLang) {
+    const personalised = [
+      `${cap(topic)} ki baat toh hamesha hoti thi na hamare beech${P.punctuation}`,
+      `Tumhe yaad hai woh baar jab ${topic} ki baat hui thi${P.usesEllipsis?'...':'.'}`,
+    ];
+    if (Math.random() > 0.5) return pick(personalised);
+  }
+
+  const isMixed = P.mixedLang;
+  const warmthLines = isMixed ? [
+    'Apna khayal rakhna' + P.punctuation,
+    'Main hamesha tumhare saath hun' + P.punctuation,
+    'Khana kha lena aaj' + P.punctuation,
+    'Tum strong ho' + P.punctuation,
+    'Teri bahut yaad aati hai' + P.punctuation,
+    'Chai pi lena, thoda aaram karo' + P.punctuation,
+    'Sab theek ho jaayega' + P.punctuation,
+    'Bas yahan rehna' + P.punctuation,
+    'Rona aaye toh ro lena — koi burai nahi' + P.punctuation,
+    'Tumhari smile yaad aati hai mujhe' + P.punctuation,
+  ] : [
+    'I am always with you' + P.punctuation,
+    'Take care of yourself today' + P.punctuation,
+    'You are stronger than you know' + P.punctuation,
+    'Please eat something' + P.punctuation,
+    'I miss you too' + P.punctuation,
+    'Rest a little' + P.punctuation,
+    'It\'s okay to cry' + P.punctuation,
+    'You don\'t have to be okay all the time' + P.punctuation,
+    'I\'m proud of you' + P.punctuation,
+    'One day at a time' + P.punctuation,
+  ];
+  return pick(warmthLines);
+}
+
+function buildClosing() {
+  const P = Person;
+  // Only add closing ~50% of the time — not every message has a sign-off
+  if (Math.random() > 0.5) return '';
+
+  const closings_mixed = [
+    'Tumhara ' + P.name,
+    'Pyaar ke saath, ' + P.name,
+    '— ' + P.name,
+    P.name,
+  ];
+  const closings_en = [
+    'Your ' + P.name,
+    'With love, ' + P.name,
+    '— ' + P.name,
+    P.name,
+  ];
+  const opts = P.mixedLang ? closings_mixed : closings_en;
+  return pick(opts);
+}
+
+function pick(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
+function cap(s) { return s ? s.charAt(0).toUpperCase()+s.slice(1) : ''; }
+
+// ══ VOICE ══
+document.getElementById('vOrb').addEventListener('click', toggleVoice);
+document.getElementById('btnVoiceChat').addEventListener('click', toggleVoiceChatInline);
+
+async function toggleVoice() {
+  if (!S.recording) { await startRec(true); } else { stopRec(true); }
+}
+async function toggleVoiceChatInline() {
+  if (!S.recording) {
+    await startRec(false);
+    document.getElementById('btnVoiceChat').classList.add('rec');
+  } else {
+    stopRec(false);
+    document.getElementById('btnVoiceChat').classList.remove('rec');
+  }
+}
+
+async function startRec(panel) {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    S.mediaRecorder = new MediaRecorder(stream);
+    S.audioChunks = []; S.recording = true;
+    S.mediaRecorder.addEventListener('dataavailable', e=>S.audioChunks.push(e.data));
+    S.mediaRecorder.start(100);
+    if (panel) {
+      document.getElementById('vOrb').classList.add('rec');
+      document.getElementById('vOrbIcon').textContent='⏹️';
+      document.getElementById('vStatus').textContent='Recording… tap to stop';
+      document.getElementById('vTranscript').classList.remove('show');
+      document.getElementById('btnVProcess').style.display='none';
+    }
+    drawWave(stream, panel ? 'vWave' : 'waveCanvas', panel ? 'v-wave' : 'show');
+  } catch(e) {
+    if(panel) document.getElementById('vStatus').textContent='Microphone access denied';
+  }
+}
+
+function stopRec(panel) {
+  if (!S.mediaRecorder) return;
+  S.mediaRecorder.stop(); S.mediaRecorder.stream.getTracks().forEach(t=>t.stop());
+  S.recording = false; S.voiceCount++;
+  const el = panel ? document.getElementById('vWave') : document.getElementById('waveCanvas');
+  el.classList.remove('show');
+  if (panel) {
+    document.getElementById('vOrb').classList.remove('rec');
+    document.getElementById('vOrbIcon').textContent='🎙️';
+    document.getElementById('vStatus').textContent='Processing…';
+    setTimeout(() => {
+      const demos = {hi:'आज आई की बहुत याद आ रही है…',en:'I miss Aai so much today…',mr:'आज आई खूप आठवते…'};
+      const tr = demos[S.lang] || demos.hi;
+      document.getElementById('vTranscript').textContent=`"${tr}"`;
+      document.getElementById('vTranscript').classList.add('show');
+      document.getElementById('vStatus').textContent='Transcribed · '+({hi:'Hindi',en:'English',mr:'Marathi'}[S.lang]||'Hindi');
+      document.getElementById('btnVProcess').style.display='block';
+    }, 900);
+  } else {
+    chatInput.value = S.lang==='hi'?'आज आई की बहुत याद आ रही है…':'I miss Aai so much today…';
+    chatInput.style.height='auto'; chatInput.style.height=chatInput.scrollHeight+'px';
+  }
+  updateMetrics();
+}
+
+document.getElementById('btnVProcess').addEventListener('click', () => {
+  const t = document.getElementById('vTranscript').textContent.replace(/"/g,'');
+  document.querySelector('[data-tab="chat"]').click();
+  chatInput.value = t; setTimeout(sendMsg, 200);
+});
+
+document.querySelectorAll('.lang-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.lang-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active'); S.lang=b.dataset.lang;
+  });
+});
+
+// ══ FIX 3: drawWave — ctx.roundRect fallback for older browsers ══
+function drawWave(stream, canvasId, showClass) {
+  const canvas = document.getElementById(canvasId);
+  if (showClass) canvas.classList.add(showClass);
+  const ac = new AudioContext();
+  const src = ac.createMediaStreamSource(stream);
+  const an = ac.createAnalyser(); an.fftSize=64;
+  src.connect(an);
+  const data = new Uint8Array(an.frequencyBinCount);
+  const ctx = canvas.getContext('2d');
+  const dpr = devicePixelRatio||1;
+  canvas.width = (canvas.offsetWidth||600)*dpr;
+  canvas.height = (canvas.offsetHeight||88)*dpr;
+
+  // Polyfill roundRect for browsers that don't support it
+  if (!ctx.roundRect) {
+    ctx.roundRect = function(x, y, w, h, r) {
+      this.beginPath();
+      this.moveTo(x + r, y);
+      this.lineTo(x + w - r, y);
+      this.arcTo(x + w, y, x + w, y + r, r);
+      this.lineTo(x + w, y + h - r);
+      this.arcTo(x + w, y + h, x + w - r, y + h, r);
+      this.lineTo(x + r, y + h);
+      this.arcTo(x, y + h, x, y + h - r, r);
+      this.lineTo(x, y + r);
+      this.arcTo(x, y, x + r, y, r);
+      this.closePath();
+    };
+  }
+
+  function draw() {
+    if(!S.recording){ctx.clearRect(0,0,canvas.width,canvas.height);return;}
+    requestAnimationFrame(draw);
+    an.getByteFrequencyData(data);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const bw = canvas.width/data.length;
+    data.forEach((v,i)=>{
+      const h=(v/255)*canvas.height;
+      ctx.fillStyle=`hsla(${25+i*2},60%,55%,0.75)`;
+      ctx.beginPath();
+      ctx.roundRect(i*bw,canvas.height-h,Math.max(bw-2,1),h,2);
+      ctx.fill();
+    });
+  }
+  draw();
+}
+
+// ══ UPLOAD ══
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+
+uploadZone.addEventListener('click', ()=>fileInput.click());
+uploadZone.addEventListener('dragover', e=>{e.preventDefault();uploadZone.classList.add('drag');});
+uploadZone.addEventListener('dragleave', ()=>uploadZone.classList.remove('drag'));
+uploadZone.addEventListener('drop', e=>{e.preventDefault();uploadZone.classList.remove('drag');if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
+fileInput.addEventListener('change', ()=>{if(fileInput.files[0])handleFile(fileInput.files[0]);});
+
+function handleFile(f) {
+  document.getElementById('fcName').textContent = f.name;
+  document.getElementById('fcSize').textContent = `${(f.size/1024).toFixed(1)} KB · text/plain`;
+  document.getElementById('fileChip').classList.add('show');
+  document.getElementById('btnProcess').classList.add('show');
+  const rd = new FileReader(); rd.onload=e=>window._raw=e.target.result; rd.readAsText(f,'utf-8');
+}
+
+document.getElementById('btnProcess').addEventListener('click', processChat);
+
+function processChat() {
+  if(!window._raw) {
+    // _raw might still be loading — wait briefly
+    const btn = document.getElementById('btnProcess');
+    btn.textContent = '⏳ Loading file…';
+    setTimeout(() => { window._raw ? processChat() : (btn.textContent = '✨ Parse & Build Memory Index', btn.classList.add('show'), alert('File not ready yet. Please wait a moment and try again.')); }, 600);
+    return;
+  }
+  document.getElementById('progWrap').classList.add('show');
+  document.getElementById('btnProcess').style.display='none';
+  step('s1',0,28,'Parsing messages…',()=>{
+    S.messages = parseWA(window._raw);
+    buildPersonProfile(S.messages);
+    step('s2',28,62,'Generating embeddings…',()=>{
+      step('s3',62,88,'Storing in ChromaDB…',()=>{
+        step('s4',88,100,'Done!',()=>{
+          document.getElementById('s4').classList.add('done');
+          document.getElementById('s4').querySelector('.step-ic').textContent='✓';
+          updateBadge(); renderMemories(); renderAnalytics(); updateMetrics();
+        });
+      });
+    });
+  });
+}
+
+function step(id, s, e, lbl, cb) {
+  const el=document.getElementById(id);
+  el.classList.add('active'); el.querySelector('.step-ic').textContent='⚙️';
+  document.getElementById('progLabel').textContent=lbl;
+  let p=s;
+  const iv=setInterval(()=>{
+    p+=1.8;
+    document.getElementById('progFill').style.width=p+'%';
+    document.getElementById('progPct').textContent=Math.round(p)+'%';
+    if(p>=e){clearInterval(iv);el.classList.remove('active');el.classList.add('done');el.querySelector('.step-ic').textContent='✓';setTimeout(cb,150);}
+  },35);
+}
+
+function parseWA(txt) {
+  const msgs=[]; const pats=[
+    /\[(\d{1,2}\/\d{1,2}\/\d{4}),\s*(\d{1,2}:\d{2}:\d{2}\s*(?:AM|PM))\]\s*(.*?):\s*(.*)/,
+    /(\d{1,2}\/\d{1,2}\/\d{2,4}),\s*(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM))\s*-\s*(.*?):\s*(.*)/,
+    /(\d{1,2}\/\d{1,2}\/\d{2,4}),\s*(\d{1,2}:\d{2})\s*-\s*(.*?):\s*(.*)/
+  ];
+  txt.split('\n').forEach(line=>{
+    line=line.trim(); if(!line) return;
+    for(const p of pats){
+      const m=line.match(p);
+      if(m){const[,d,t,s,msg]=m;if(msg&&msg.length>2&&!msg.includes('omitted')){msgs.push({date:d,time:t,sender:s.trim(),message:msg.trim()});}return;}
+    }
+  });
+  return msgs;
+}
+
+// ══ MEMORIES ══
+function renderMemories(filter='') {
+  const g=document.getElementById('memGrid');
+  const arr=filter?S.messages.filter(m=>m.message.toLowerCase().includes(filter.toLowerCase())||m.sender.toLowerCase().includes(filter.toLowerCase())):S.messages.slice(0,60);
+  g.innerHTML='';
+  if(!arr.length){g.innerHTML=`<div class="empty-state">${S.messages.length?'No memories match.':'Upload a WhatsApp chat to see memories here.'}</div>`;return;}
+  arr.forEach((m,i)=>{
+    const sc=(0.42+Math.random()*0.5).toFixed(2);
+    const c=document.createElement('div'); c.className='mem-card'; c.style.animationDelay=(i*0.03)+'s';
+    c.innerHTML=`<div class="mc-date">${m.date||'—'} ${m.time||''}</div><div class="mc-sender">${escH(m.sender)}</div><div class="mc-text">${escH(m.message)}</div><div class="mc-score"><span>Similarity</span><div class="sc-bar"><div class="sc-fill" style="width:${sc*100}%"></div></div><span>${sc}</span></div>`;
+    c.addEventListener('click',()=>{
+      document.querySelector('[data-tab="chat"]').click();
+      chatInput.value=`Tell me about: "${m.message.substring(0,60)}…"`;
+    });
+    g.appendChild(c);
+  });
+}
+
+document.getElementById('memSearch').addEventListener('input', function(){renderMemories(this.value);});
+
+// ══ AASMAN ══
+function renderAasman() { renderStars(); renderDiyas(); renderWhispers(); }
+
+// ══ FIX 4: renderStars — fixed invalid color string construction for star colors ══
+function renderStars() {
+  const canvas=document.getElementById('starCanvas');
+  const parent=document.getElementById('sky-stars');
+  canvas.width=parent.offsetWidth||800; canvas.height=parent.offsetHeight||400;
+  const ctx=canvas.getContext('2d');
+  // Store hue/sat/light separately so we can build valid hsla() without string surgery
+  const stars=Array.from({length:80},()=>({
+    x:Math.random()*canvas.width,
+    y:Math.random()*canvas.height,
+    r:0.5+Math.random()*2.5,
+    sp:0.5+Math.random(),
+    ph:Math.random()*Math.PI*2,
+    h:200+Math.random()*40,
+    s:40+Math.random()*40,
+    l:60+Math.random()*30
+  }));
+  const diyas=[];
+
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const t=Date.now()/1000;
+    stars.forEach(s=>{
+      const alpha=0.5+0.5*Math.sin(t*s.sp+s.ph);
+      // FIX: build hsla directly instead of broken string replace chain
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle=`hsla(${s.h},${s.s}%,${s.l}%,${alpha})`;
+      ctx.fill();
+    });
+    diyas.forEach(d=>{
+      const age=(Date.now()-d.t)/1000;
+      const alpha=Math.max(0,1-age/8);
+      if(alpha<=0) return;
+      ctx.beginPath(); ctx.arc(d.x,d.y,6+3*Math.sin(t*3+d.x),0,Math.PI*2);
+      ctx.fillStyle=`rgba(${d.r},${d.g},${d.b},${alpha*0.7})`;
+      ctx.shadowBlur=15; ctx.shadowColor=`rgba(${d.r},${d.g},${d.b},1)`; ctx.fill(); ctx.shadowBlur=0;
+      ctx.font=`${14+2*Math.sin(t*2+d.y)}px serif`;
+      ctx.globalAlpha=alpha; ctx.fillText('🪔',d.x-7,d.y+5); ctx.globalAlpha=1;
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  canvas.addEventListener('click', e=>{
+    const r=canvas.getBoundingClientRect();
+    // Store as RGB components so rendering stays clean
+    const palettes=[[255,215,0],[255,107,107],[152,251,152],[135,206,235],[221,160,221]];
+    const p=palettes[Math.floor(Math.random()*palettes.length)];
+    diyas.push({x:e.clientX-r.left,y:e.clientY-r.top,r:p[0],g:p[1],b:p[2],t:Date.now()});
+    document.getElementById('liveCount').textContent = (5+diyas.length)+' people sharing this sky';
+  });
+}
+
+function renderDiyas() {
+  const g=document.getElementById('diyaGrid');
+  const all=[...DEMO_DIYAS,...S.diyas];
+  g.innerHTML=all.map((d,i)=>`<div class="diya-item" style="animation-delay:${i*0.06}s"><span class="diya-flame">🪔</span><span style="color:${d.color};font-size:0.75rem">${d.intent||'For peace'}</span></div>`).join('');
+}
+
+function renderWhispers() {
+  const l=document.getElementById('whisperList');
+  const all=[...DEMO_WHISPERS,...S.whispers];
+  l.innerHTML=all.map((w,i)=>`<div class="whisper-item" style="animation-delay:${i*0.06}s">"${escH(typeof w==='string'?w:w.text)}"</div>`).join('');
+}
+
+document.getElementById('btnWhisper').addEventListener('click',()=>{
+  const inp=document.getElementById('whisperInput');
+  if(!inp.value.trim()) return;
+  S.whispers.unshift({text:inp.value.trim()});
+  renderWhispers(); inp.value='';
+});
+document.getElementById('whisperInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('btnWhisper').click();});
+
+// Sky tabs
+document.querySelectorAll('.sky-tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.sky-tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
+    const tab=t.dataset.sky;
+    document.querySelectorAll('.sky-content').forEach(c=>c.style.display='none');
+    const show=document.getElementById('sky-'+tab);
+    if(tab==='stars'){show.style.display='block';}
+    else if(tab==='whispers'){show.style.display='flex';show.style.flexDirection='column';}
+    else if(tab==='breath'){show.style.display='flex';initBreath();}
+    else{show.style.display='flex';}
+  });
+});
+
+// Breathing
+function initBreath() {
+  const orb=document.getElementById('breathOrb');
+  const lbl=document.getElementById('breathLabel');
+  // Remove old listener by cloning
+  const newOrb = orb.cloneNode(true);
+  orb.parentNode.replaceChild(newOrb, orb);
+  newOrb.addEventListener('click',()=>{
+    if(!S.breathActive){S.breathActive=true;runBreath();}
+    else{S.breathActive=false;clearTimeout(S.breathTimer);newOrb.classList.remove('breathing');lbl.textContent='Tap to start';}
+  });
+}
+const breathPhases=[{t:4000,lbl:'Inhale slowly…'},{t:7000,lbl:'Hold…'},{t:6000,lbl:'Exhale gently…'},{t:2000,lbl:'Rest…'}];
+function runBreath() {
+  if(!S.breathActive) return;
+  const ph=breathPhases[S.breathPhase%4];
+  const orb=document.getElementById('breathOrb');
+  orb.classList.add('breathing');
+  document.getElementById('breathLabel').textContent=ph.lbl;
+  S.breathTimer=setTimeout(()=>{S.breathPhase++;runBreath();},ph.t);
+}
+
+// ══ BAITHAK ══
+function renderBaithak() { renderThreads(); renderCats(); }
+
+// ══ FIX 5: replyThread — mutate original arrays directly, not a spread copy ══
+window.replyThread = function(i) {
+  if (i < DEMO_THREADS.length) {
+    DEMO_THREADS[i].hearts++;
+  } else {
+    S.threads[i - DEMO_THREADS.length].hearts++;
+  }
+  renderThreads();
+};
+
+function renderThreads() {
+  const g=document.getElementById('bk-browse');
+  const all=[...DEMO_THREADS,...S.threads];
+  g.innerHTML=all.map((t,i)=>`
+    <div class="thread" style="animation-delay:${i*0.07}s">
+      <div class="thread-top"><span class="thread-symbol">${t.sym}</span><span class="thread-cat">${t.cat}</span><span class="urgency ${t.urgency}"></span></div>
+      <div class="thread-text">${escH(t.text)}</div>
+      <div class="thread-meta">💬 ${t.replies} replies · 🌸 ${t.hearts} warmth</div>
+      <button class="reply-btn" onclick="replyThread(${i})">This helped me 🌸</button>
+    </div>`).join('');
+}
+
+function renderCats() {
+  document.getElementById('catPicker').innerHTML=CATS.map(c=>`<button onclick="toggleCat(this)" style="background:var(--sand);border:1.5px solid var(--border);color:var(--mid);font-family:'Sora',sans-serif;font-size:0.72rem;padding:0.3rem 0.8rem;border-radius:20px;cursor:pointer;transition:all 0.2s;">${c}</button>`).join('');
+}
+
+window.toggleCat=function(btn){
+  const active = btn.style.background.includes('rgba');
+  btn.style.background = active ? 'var(--sand)' : 'rgba(181,101,42,0.15)';
+  btn.style.color = active ? 'var(--mid)' : 'var(--ember)';
+};
+
+document.getElementById('postSymbol').addEventListener('click',()=>{
+  const i=SYMBOLS.indexOf(S.currentSymbol);
+  S.currentSymbol=SYMBOLS[(i+1)%SYMBOLS.length];
+  document.getElementById('postSymbol').innerHTML=`${S.currentSymbol} <span>Your anonymous symbol · tap to change</span>`;
+});
+
+document.getElementById('btnPost').addEventListener('click',()=>{
+  const t=document.getElementById('postText').value.trim(); if(!t) return;
+  S.threads.unshift({sym:S.currentSymbol,cat:'General',text:t,urgency:'low',replies:0,hearts:0});
+  document.getElementById('postText').value='';
+  document.querySelector('[data-bk="browse"]').click();
+  renderThreads();
+});
+
+(function(){
+  const q=document.getElementById('volQueue');
+  if(q) q.innerHTML=DEMO_THREADS.filter(t=>t.urgency==='high'||t.urgency==='med').map((t,i)=>`
+    <div class="thread" style="animation-delay:${i*0.07}s">
+      <div class="thread-top"><span class="thread-symbol">${t.sym}</span><span class="thread-cat">${t.cat}</span><span class="urgency ${t.urgency}"></span></div>
+      <div class="thread-text">${escH(t.text.substring(0,100))}…</div>
+      <button class="reply-btn" onclick="this.textContent='Response sent 💚';this.style.color='var(--safe)';document.getElementById('volReplies').textContent=parseInt(document.getElementById('volReplies').textContent)+1;">Respond with warmth</button>
+    </div>`).join('');
+})();
+
+document.querySelectorAll('.bk-tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.bk-tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
+    ['browse','post','volunteer'].forEach(k=>document.getElementById('bk-'+k).style.display='none');
+    document.getElementById('bk-'+t.dataset.bk).style.display='block';
+  });
+});
+
+// ══ ANALYTICS ══
+function renderAnalytics() {
+  updateMetrics();
+  const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const counts=new Array(7).fill(0);
+  S.messages.forEach(m=>{
+    const parts=m.date?m.date.split('/'):null;
+    if(parts){try{const d=new Date(`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`);if(!isNaN(d))counts[d.getDay()]++;}catch{counts[Math.floor(Math.random()*7)]++;}}
+    else counts[Math.floor(Math.random()*7)]++;
+  });
+  const mx=Math.max(...counts,1);
+  const bc=document.getElementById('barChart'); const bl=document.getElementById('barLabels');
+  bc.innerHTML=''; bl.innerHTML='';
+  counts.forEach((c,i)=>{
+    const b=document.createElement('div'); b.className='bar';
+    b.style.height=`${Math.max((c/mx)*100,4)}%`; b.dataset.v=c; bc.appendChild(b);
+    const l=document.createElement('div'); l.className='bar-lbl'; l.textContent=days[i]; bl.appendChild(l);
+  });
+  const sm={};
+  S.messages.forEach(m=>{sm[m.sender]=(sm[m.sender]||0)+1;});
+  const sorted=Object.entries(sm).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const tot=S.messages.length||1;
+  document.getElementById('sendersList').innerHTML=sorted.length?sorted.map(([n,c])=>`
+    <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.7rem;">
+      <div style="width:28px;height:28px;border-radius:50%;background:rgba(181,101,42,0.12);border:1.5px solid rgba(181,101,42,0.2);display:flex;align-items:center;justify-content:center;font-size:0.78rem;color:var(--ember);font-weight:600;flex-shrink:0;">${n[0]||'?'}</div>
+      <div style="flex:1;min-width:0;"><div style="font-size:0.82rem;color:var(--dark);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escH(n)}</div>
+      <div style="height:3px;background:var(--sand3);border-radius:2px;overflow:hidden;"><div style="width:${(c/tot*100).toFixed(0)}%;height:100%;background:linear-gradient(90deg,var(--ember2),var(--ember));"></div></div></div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--dim);flex-shrink:0;">${c}</div>
+    </div>`).join(''):'<div style="color:var(--dim);font-size:0.82rem;">Upload a chat to see sender stats</div>';
+}
+
+function updateMetrics() {
+  document.getElementById('mParsed').textContent=S.messages.length;
+  document.getElementById('mChats').textContent=S.chatCount;
+  document.getElementById('mVoice').textContent=S.voiceCount;
+  document.getElementById('mMemories').textContent=S.messages.length;
+}
+
+function updateBadge() {
+  document.getElementById('sbCount').textContent=S.messages.length;
+  document.getElementById('memBadge').textContent=S.messages.length+' memories';
+}
+
+window.clearAll=function(){
+  if(confirm('Clear all memories? This cannot be undone.')){
+    S.messages=[]; updateBadge(); renderMemories(); renderAnalytics();
+  }
+};
+
+// ══ DEMO DATA ══
+S.messages=[
+  {date:'22/01/2023',time:'10:45 AM',sender:'Aai',message:'Beta aaj khana kha lena, mummy ne tiffin bheja hai. Bahut yaad aati hai tumhari!'},
+  {date:'14/03/2023',time:'7:30 PM',sender:'Me',message:'Aai, woh recipe di thi na tumne — sooji ka halwa — aaj main khud banaunga.'},
+  {date:'05/06/2023',time:'9:15 AM',sender:'Aai',message:'Subah uthke chai pina mat bhoolna. Teri sehat meri jaan hai.'},
+  {date:'01/08/2023',time:'8:00 PM',sender:'Bhai',message:'Aaj ghar mein sab theek hai. Aai tumhare baare mein pooch rahi thi.'},
+  {date:'20/10/2023',time:'11:00 AM',sender:'Aai',message:'Diwali pe aa raha hai na? Ghar ki raunak tujhse hai beta.'},
+  {date:'02/12/2023',time:'3:45 PM',sender:'Me',message:'Aai, aapke haath ka khana khane ko dil karta hai. Aaj phone pe hi sahi.'},
+  {date:'15/02/2023',time:'6:30 PM',sender:'Aai',message:'Baba ko phone kiya? Woh tumhara wait kar rahe hain. Hamesha.'},
+  {date:'08/04/2023',time:'12:15 PM',sender:'Bhai',message:'Aai ne bataya aap kuch kha nahi rahe. Please apna khayal rakho yaar.'},
+];
+updateBadge(); renderMemories(); renderAnalytics();
+buildPersonProfile(S.messages);
+
+function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmtTime(d){const h=d.getHours()%12||12,m=d.getMinutes().toString().padStart(2,'0'),ap=d.getHours()>=12?'PM':'AM';return `${h}:${m} ${ap}`;}
+
+window.addEventListener('resize',()=>{
+  if(document.querySelector('.sky-tab.active')?.dataset.sky==='stars') renderStars();
+});
+</script>
+</body>
+</html>
+
